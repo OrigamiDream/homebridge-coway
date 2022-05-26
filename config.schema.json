@@ -1,0 +1,22 @@
+{
+  "pluginAlias": "Coway",
+  "pluginType": "platform",
+  "singular": true,
+  "headerDisplay": "Homebridge plugin for the Coway purifiers",
+  "footerDisplay": "For detailed description, see the [GitHub](https://github.com/OrigamiDream/homebridge-coway)",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "username": {
+        "description": "The username of the Coway account",
+        "type": "string",
+        "required": true
+      },
+      "password": {
+        "description": "The password of the Coway account",
+        "type": "string",
+        "required": true
+      }
+    }
+  }
+}
