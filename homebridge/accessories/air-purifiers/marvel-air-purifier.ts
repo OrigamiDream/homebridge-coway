@@ -507,7 +507,7 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
     }
 
     getRotationSpeed(ctx: MarvelAirPurifierInterface) {
-        const values = Object.values(FanSpeed);
+        const values: string[] = Object.values(FanSpeed);
         const fanSpeed = ctx.controlInfo.fanSpeed;
         if(fanSpeed === FanSpeed.SHUTDOWN) {
             return 0; // Invalid
