@@ -46,17 +46,19 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
         const ctx = this.platformAccessory.context as DriverWaterPurifierInterface;
         ctx.controlInfo = this.getControlInfo(controlInfo);
 
-        // Valve
-        this.valveService?.setCharacteristic(this.api.hap.Characteristic.Active, this.api.hap.Characteristic.Active.INACTIVE);
+        await this.refreshCharacteristics(() => {
+            // Valve
+            this.valveService?.setCharacteristic(this.api.hap.Characteristic.Active, this.api.hap.Characteristic.Active.INACTIVE);
 
-        // Locks
-        const coldWaterState = this.getColdWaterLockState(ctx);
-        const hotWaterState = this.getHotWaterLockState(ctx);
+            // Locks
+            const coldWaterState = this.getColdWaterLockState(ctx);
+            const hotWaterState = this.getHotWaterLockState(ctx);
 
-        this.coldWaterLockService?.setCharacteristic(this.api.hap.Characteristic.LockTargetState, coldWaterState.targetState);
-        this.coldWaterLockService?.setCharacteristic(this.api.hap.Characteristic.LockCurrentState, coldWaterState.currentState);
-        this.hotWaterLockService?.setCharacteristic(this.api.hap.Characteristic.LockTargetState, hotWaterState.targetState);
-        this.hotWaterLockService?.setCharacteristic(this.api.hap.Characteristic.LockCurrentState, hotWaterState.currentState);
+            this.coldWaterLockService?.setCharacteristic(this.api.hap.Characteristic.LockTargetState, coldWaterState.targetState);
+            this.coldWaterLockService?.setCharacteristic(this.api.hap.Characteristic.LockCurrentState, coldWaterState.currentState);
+            this.hotWaterLockService?.setCharacteristic(this.api.hap.Characteristic.LockTargetState, hotWaterState.targetState);
+            this.hotWaterLockService?.setCharacteristic(this.api.hap.Characteristic.LockCurrentState, hotWaterState.currentState);
+        });
 
         this.performDifferencesPrinting(this.latestControlInfo, controlInfo, "Control");
         this.latestControlInfo = controlInfo;
