@@ -166,7 +166,7 @@ export class Accessory<T extends AccessoryInterface> {
 
     async configure() {
         const service = this.ensureServiceAvailability(this.api.hap.Service.AccessoryInformation);
-        service.setCharacteristic(this.api.hap.Characteristic.Manufacturer, "Coway Co., Ltd.");
+        service.setCharacteristic(this.api.hap.Characteristic.Manufacturer, "Coway Co.,Ltd.");
         service.setCharacteristic(this.api.hap.Characteristic.Model, this.deviceInfo.dvcModel);
         service.setCharacteristic(this.api.hap.Characteristic.SerialNumber, this.deviceInfo.barcode);
     }
