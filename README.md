@@ -25,4 +25,4 @@ The plugin have been tested on following devices:
 - Getting current PM2.5, PM10 dusts and VOCs
 
 ### DRIVER Water Purifiers
-- Getting and setting locks of Cold / Hot water valve
+- Getting and setting locks of water valve (cold / hot)
