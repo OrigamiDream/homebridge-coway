@@ -14,22 +14,15 @@ The plugin have been tested on following devices:
 
 ## Accessory Progress
 
-- [x] Air Purifiers:
-  - [x] MARVEL models
-    - [x] Turn ON / OFF the Air Purifier
-    - [x] 6 Levels of Fan Speed
-    - [x] Auto / Manual Driving
-    - [x] LED Display ON / OFF
-    - [x] 3 Levels of LED Display Brightness
-    - [x] Indoor
-      - [x] Humidity
-      - [x] Temperature
-      - [x] Air Quality
-      - [x] PM2.5 Dusts
-      - [x] PM10 Dusts
-      - [x] VOCs
-  - [ ] Water Purifiers
-    - [ ] DRIVER models
-      - [ ] Detects water faucet in working
-      - [x] Cold water locks
-      - [x] Hot water locks
+### MARVEL Air Purifiers
+- Turning purifier on and off
+- Turning the fan on and off
+- Getting and setting rotation speed of the fan (6 levels)
+- Getting and setting fan operation mode (manual / automatic)
+- Turning the LED display on and off
+- Getting and setting brightness of the LED display (3 levels)
+- Getting current humidity, temperature and air quality
+- Getting current PM2.5, PM10 dusts and VOCs
+
+### DRIVER Water Purifiers
+- Getting and setting locks of Cold / Hot water valve
