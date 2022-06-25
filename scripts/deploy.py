@@ -29,12 +29,16 @@ def main():
     address = build_ssh_address(username, ip_address)
 
     filename = run_simple_command('npm pack')
-    run_simple_command('scp -i {} -P {} {} {}:~/homebridge/{}'
+    run_simple_command('scp -i {} -P {} {} {}:~/{}'
                        .format('{pem}', port, filename, address, filename), pem=pem_file)
 
-    docker_cmd = 'docker exec -i homebridge npm install {}'.format(filename)
+    docker_cmd = 'sudo mv ~/{} ~/homebridge/{}'.format(filename, filename)
+    run_simple_command('ssh -i {} -p {} {} "{}"'
+                       .format('{pem}', port, address, docker_cmd), pem=pem_file)
+
+    docker_cmd = 'docker exec -i homebridge hb-service add {}'.format(filename)
     run_simple_command('ssh -i {} -p {} {} "{}"'.format('{pem}', port, address, docker_cmd), pem=pem_file)
-    run_simple_command('ssh -i {} -p {} {} "{}"'.format('{pem}', port, address, 'rm ~/homebridge/{}'.format(filename)), pem=pem_file)
+    run_simple_command('ssh -i {} -p {} {} "{}"'.format('{pem}', port, address, 'sudo rm ~/homebridge/{}'.format(filename)), pem=pem_file)
     run_simple_command('rm {}'.format(filename))
     pass
 
