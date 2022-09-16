@@ -36,7 +36,7 @@ def main():
     run_simple_command('ssh -i {} -p {} {} "{}"'
                        .format('{pem}', port, address, docker_cmd), pem=pem_file)
 
-    docker_cmd = 'docker exec -i homebridge hb-service add {}'.format(filename)
+    docker_cmd = 'docker exec -i homebridge npm install {}'.format(filename)
     run_simple_command('ssh -i {} -p {} {} "{}"'.format('{pem}', port, address, docker_cmd), pem=pem_file)
     run_simple_command('ssh -i {} -p {} {} "{}"'.format('{pem}', port, address, 'sudo rm ~/homebridge/{}'.format(filename)), pem=pem_file)
     run_simple_command('rm {}'.format(filename))
