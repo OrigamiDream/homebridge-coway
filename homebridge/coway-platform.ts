@@ -6,6 +6,7 @@ import {Constants, DeviceType, Endpoint} from "./enumerations";
 import {MarvelAirPurifier} from "./accessories/air-purifiers/marvel-air-purifier";
 import {DriverWaterPurifier} from "./accessories/water-purifiers/driver-water-purifier";
 import {Device} from "./interfaces/device";
+import compareSemanticVersion from "semver-compare";
 
 type AccessoryTypes =
     typeof DriverWaterPurifier |
@@ -32,6 +33,11 @@ export class CowayPlatform implements DynamicPlatformPlugin {
 
         if(!this.config) {
             this.log.warn("The coway config is not yet configured.");
+            return;
+        }
+        const hapVersion = api.hap.HAPLibraryVersion();
+        if(compareSemanticVersion(hapVersion, "0.10.3") < 0) {
+            this.log.error("The HAP-NodeJS prerequisite version is 0.10.3. Currently on " + hapVersion);
             return;
         }
 

@@ -4,7 +4,7 @@ import {
     CharacteristicEventTypes,
     CharacteristicGetCallback,
     CharacteristicSetCallback,
-    CharacteristicValue,
+    CharacteristicValue, Formats,
     Logging,
     PlatformAccessory,
     Service
@@ -15,8 +15,10 @@ import {AirQuality, FanSpeed, Field, Light, Mode, Power} from "./enumerations";
 import {DeviceType, Endpoint} from "../../enumerations";
 import {ControlInfo, FilterInfo, IndoorAirQuality, MarvelAirPurifierInterface} from "./interfaces";
 
-const LIGHTBULB_BRIGHTNESS_UNIT = 33;
-const ROTATION_SPEED_UNIT = 100 / 6;
+// Refer to https://github.com/homebridge/HAP-NodeJS/releases/tag/v0.10.3
+// Fix rounding algorithm by @OrigamiDream in #956 and #958
+const LIGHTBULB_BRIGHTNESS_UNIT = 100 / 3.0;
+const ROTATION_SPEED_UNIT = 100 / 6.0;
 
 // MARVEL Air Purifier
 export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
@@ -171,8 +173,9 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
 
         service.getCharacteristic(this.api.hap.Characteristic.Brightness)
             .setProps({
+                format: Formats.FLOAT,
                 minValue: 0.0, // auto-driving brightness state (only available with direct hardware control)
-                maxValue: LIGHTBULB_BRIGHTNESS_UNIT * 3, // Up to level 3
+                maxValue: 100.0, // Up to level 3
                 minStep: LIGHTBULB_BRIGHTNESS_UNIT
             })
             .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
@@ -287,8 +290,9 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
 
         service.getCharacteristic(this.api.hap.Characteristic.RotationSpeed)
             .setProps({
+                format: Formats.FLOAT,
                 minValue: 0,
-                maxValue: ROTATION_SPEED_UNIT * 6, // Up to level 6
+                maxValue: 100, // Up to level 6
                 minStep: ROTATION_SPEED_UNIT
             })
             .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
