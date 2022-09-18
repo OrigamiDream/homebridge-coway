@@ -67,7 +67,15 @@ export class CowayPlatform implements DynamicPlatformPlugin {
         const responses = await Promise.all(queues);
         for(const accessory of this.accessories) {
             const awaits = responses.splice(0, accessory.getEndpoints().length);
-            await accessory.refresh(accessory.zipEndpointResponses(awaits));
+            const zippedResponses = accessory.zipEndpointResponses(awaits);
+            const controlInfo = zippedResponses[Endpoint.GET_DEVICE_CONTROL_INFO];
+            const connected = controlInfo["netStatus"] as boolean;
+            if(!connected) {
+                const deviceName = accessory.getPlatformAccessory().displayName;
+                this.log.warn("Device %s is not connected to the network (Wi-Fi disconnection, device offline, etc.)", deviceName);
+                continue;
+            }
+            await accessory.refresh(zippedResponses);
         }
     }
 

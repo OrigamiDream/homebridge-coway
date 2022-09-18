@@ -1,4 +1,4 @@
-import {API, Logging, PlatformAccessory, Service, WithUUID} from "homebridge";
+import {API, CharacteristicGetCallback, HAPStatus, Logging, PlatformAccessory, Service, WithUUID} from "homebridge";
 import {CowayConfig} from "../interfaces/config";
 import {AccessToken, CowayService, PayloadCommand} from "../coway";
 import {DeviceType, Endpoint, Field} from "../enumerations";
@@ -22,6 +22,7 @@ interface ExpirablePayloadCommand extends PayloadCommand {
 const COMMAND_MAXIMUM_SKIPS = 3;
 
 export type CharacteristicRefreshingCallback = () => void;
+export type CharacteristicGetListener = (callback: CharacteristicGetCallback) => void;
 
 export class Accessory<T extends AccessoryInterface> {
 
@@ -33,6 +34,7 @@ export class Accessory<T extends AccessoryInterface> {
     protected accessToken?: AccessToken = undefined;
 
     protected characteristicRefreshing = false;
+    protected isConnected = false;
 
     constructor(protected readonly log: Logging,
                 protected readonly api: API,
@@ -114,7 +116,8 @@ export class Accessory<T extends AccessoryInterface> {
 
     async refresh(responses: AccessoryResponses) {
         if(Endpoint.GET_DEVICE_CONTROL_INFO in responses) {
-            const info = responses[Endpoint.GET_DEVICE_CONTROL_INFO]["controlStatus"];
+            const controlInfo = responses[Endpoint.GET_DEVICE_CONTROL_INFO];
+            const info = controlInfo["controlStatus"];
             const commandsToFlush: ExpirablePayloadCommand[] = [];
             const commandsToPurge: ExpirablePayloadCommand[] = [];
 
@@ -155,6 +158,9 @@ export class Accessory<T extends AccessoryInterface> {
             if(skipped) {
                 this.log.debug("%d fetched keys have been kept this time", skipped);
             }
+
+            // Update device network connection info
+            this.isConnected = controlInfo["netStatus"] as boolean;
         }
     }
 
@@ -195,4 +201,13 @@ export class Accessory<T extends AccessoryInterface> {
         }], accessToken);
     }
 
+    wrap(listener: CharacteristicGetListener): CharacteristicGetListener {
+        return (callback: CharacteristicGetCallback) => {
+            if(!this.isConnected) {
+                callback(HAPStatus.SERVICE_COMMUNICATION_FAILURE);
+                return;
+            }
+            listener(callback);
+        }
+    }
 }
