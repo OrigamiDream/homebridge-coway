@@ -1,4 +1,14 @@
-import {API, CharacteristicGetCallback, HAPStatus, Logging, PlatformAccessory, Service, WithUUID} from "homebridge";
+import {
+    API,
+    CharacteristicGetCallback,
+    CharacteristicSetCallback,
+    CharacteristicValue,
+    HAPStatus,
+    Logging,
+    PlatformAccessory,
+    Service,
+    WithUUID
+} from "homebridge";
 import {CowayConfig} from "../interfaces/config";
 import {AccessToken, CowayService, PayloadCommand} from "../coway";
 import {DeviceType, Endpoint, Field} from "../enumerations";
@@ -23,6 +33,7 @@ const COMMAND_MAXIMUM_SKIPS = 3;
 
 export type CharacteristicRefreshingCallback = () => void;
 export type CharacteristicGetListener = (callback: CharacteristicGetCallback) => void;
+export type CharacteristicSetListener = (value: CharacteristicValue, callback: CharacteristicSetCallback) => void;
 
 export class Accessory<T extends AccessoryInterface> {
 
@@ -166,7 +177,9 @@ export class Accessory<T extends AccessoryInterface> {
 
     async refreshCharacteristics(callback: CharacteristicRefreshingCallback) {
         this.characteristicRefreshing = true;
-        await callback();
+        if(this.isConnected) {
+            await callback();
+        }
         this.characteristicRefreshing = false;
     }
 
@@ -178,6 +191,9 @@ export class Accessory<T extends AccessoryInterface> {
     }
 
     async executeSetPayloads(deviceInfo: Device, inputs: PayloadCommand[], accessToken?: AccessToken) {
+        if(!this.isConnected) {
+            return;
+        }
         for(const command of inputs) {
             const preoccupied = this.enqueuedPayloads.find(preoccupied => preoccupied.key === command.key);
             if(preoccupied) {
@@ -201,13 +217,23 @@ export class Accessory<T extends AccessoryInterface> {
         }], accessToken);
     }
 
-    wrap(listener: CharacteristicGetListener): CharacteristicGetListener {
+    wrapGet(listener: CharacteristicGetListener): CharacteristicGetListener {
         return (callback: CharacteristicGetCallback) => {
             if(!this.isConnected) {
                 callback(HAPStatus.SERVICE_COMMUNICATION_FAILURE);
                 return;
             }
             listener(callback);
-        }
+        };
+    }
+
+    wrapSet(listener: CharacteristicSetListener): CharacteristicSetListener {
+        return (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
+            if(!this.isConnected) {
+                callback(HAPStatus.SERVICE_COMMUNICATION_FAILURE);
+                return;
+            }
+            listener(value, callback);
+        };
     }
 }

@@ -134,39 +134,39 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
     registerValveService(): Service {
         const service = this.ensureServiceAvailability(this.api.hap.Service.Valve);
         service.getCharacteristic(this.api.hap.Characteristic.Active)
-            .on(CharacteristicEventTypes.GET, this.wrap((callback: CharacteristicGetCallback) => {
+            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                 // TODO: Implement the GET characteristic handler
                 callback(undefined, this.api.hap.Characteristic.Active.INACTIVE);
             }))
-            .on(CharacteristicEventTypes.SET, (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
+            .on(CharacteristicEventTypes.SET, this.wrapSet((value: CharacteristicValue, callback: CharacteristicSetCallback) => {
                 // TODO: Implement the SET characteristic handler
                 callback(new Error("NOT IMPLEMENTED"));
-            });
+            }));
         service.getCharacteristic(this.api.hap.Characteristic.InUse)
-            .on(CharacteristicEventTypes.GET, this.wrap((callback: CharacteristicGetCallback) => {
+            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                 // TODO: Implement the GET characteristic handler
                 callback(undefined, this.api.hap.Characteristic.InUse.NOT_IN_USE);
             }));
         service.getCharacteristic(this.api.hap.Characteristic.ValveType)
-            .on(CharacteristicEventTypes.GET, (callback: CharacteristicGetCallback) => {
+            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                 callback(undefined, this.api.hap.Characteristic.ValveType.WATER_FAUCET);
-            });
+            }));
         return service;
     }
 
     registerColdWaterLockService(): Service {
         const service = this.ensureServiceAvailability(this.api.hap.Service.LockMechanism, "Cold Water", "cold");
         service.getCharacteristic(this.api.hap.Characteristic.LockCurrentState)
-            .on(CharacteristicEventTypes.GET, this.wrap((callback: CharacteristicGetCallback) => {
+            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                 const ctx = this.platformAccessory.context as DriverWaterPurifierInterface;
                 callback(undefined, this.getColdWaterLockState(ctx).currentState);
             }));
         service.getCharacteristic(this.api.hap.Characteristic.LockTargetState)
-            .on(CharacteristicEventTypes.GET, this.wrap((callback: CharacteristicGetCallback) => {
+            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                 const ctx = this.platformAccessory.context as DriverWaterPurifierInterface;
                 callback(undefined, this.getColdWaterLockState(ctx).targetState);
             }))
-            .on(CharacteristicEventTypes.SET, async (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
+            .on(CharacteristicEventTypes.SET, this.wrapSet(async (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
                 const ctx = this.platformAccessory.context as DriverWaterPurifierInterface;
                 let locked;
                 if(value === this.api.hap.Characteristic.LockTargetState.SECURED) {
@@ -180,23 +180,23 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
                 }
                 await this.executeSetPayload(ctx.deviceInfo, Field.COLD_WATER_LOCK, locked, this.accessToken);
                 callback(undefined);
-            });
+            }));
         return service;
     }
 
     registerHotWaterLockService(): Service {
         const service = this.ensureServiceAvailability(this.api.hap.Service.LockMechanism, "Hot Water", "hot");
         service.getCharacteristic(this.api.hap.Characteristic.LockCurrentState)
-            .on(CharacteristicEventTypes.GET, this.wrap((callback: CharacteristicGetCallback) => {
+            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                 const ctx = this.platformAccessory.context as DriverWaterPurifierInterface;
                 callback(undefined, this.getHotWaterLockState(ctx).currentState);
             }));
         service.getCharacteristic(this.api.hap.Characteristic.LockTargetState)
-            .on(CharacteristicEventTypes.GET, this.wrap((callback: CharacteristicGetCallback) => {
+            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                 const ctx = this.platformAccessory.context as DriverWaterPurifierInterface;
                 callback(undefined, this.getHotWaterLockState(ctx).targetState);
             }))
-            .on(CharacteristicEventTypes.SET, async (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
+            .on(CharacteristicEventTypes.SET, this.wrapSet(async (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
                 const ctx = this.platformAccessory.context as DriverWaterPurifierInterface;
                 let locked;
                 if(value === this.api.hap.Characteristic.LockTargetState.SECURED) {
@@ -210,7 +210,7 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
                 }
                 await this.executeSetPayload(ctx.deviceInfo, Field.HOT_WATER_LOCK, locked, this.accessToken);
                 callback(undefined);
-            });
+            }));
         return service;
     }
 

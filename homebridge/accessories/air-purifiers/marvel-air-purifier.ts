@@ -147,11 +147,11 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
     registerLightbulbService(): Service {
         const service = this.ensureServiceAvailability(this.api.hap.Service.Lightbulb);
         service.getCharacteristic(this.api.hap.Characteristic.On)
-            .on(CharacteristicEventTypes.GET, this.wrap((callback: CharacteristicGetCallback) => {
+            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                 const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
                 callback(undefined, ctx.controlInfo.on && ctx.controlInfo.lightbulbInfo.on);
             }))
-            .on(CharacteristicEventTypes.SET, async (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
+            .on(CharacteristicEventTypes.SET, this.wrapSet(async (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
                 const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
                 const enabled = !!value;
                 if(ctx.controlInfo.lightbulbInfo.on === enabled) {
@@ -169,7 +169,7 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
 
                 await this.executeSetPayload(ctx.deviceInfo, Field.LIGHT, enabled ? Light.ON : Light.OFF, this.accessToken);
                 callback(undefined);
-            });
+            }));
 
         service.getCharacteristic(this.api.hap.Characteristic.Brightness)
             .setProps({
@@ -178,7 +178,7 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
                 maxValue: 100.0, // Up to level 3
                 minStep: LIGHTBULB_BRIGHTNESS_UNIT
             })
-            .on(CharacteristicEventTypes.GET, this.wrap((callback: CharacteristicGetCallback) => {
+            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                 const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
                 if(!ctx.controlInfo.on) {
                     callback(undefined, 0); // zero brightness when the purifier turned off
@@ -187,7 +187,7 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
                 let brightness = ctx.controlInfo.lightbulbInfo.brightness * LIGHTBULB_BRIGHTNESS_UNIT;
                 callback(undefined, brightness);
             }))
-            .on(CharacteristicEventTypes.SET, async (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
+            .on(CharacteristicEventTypes.SET, this.wrapSet(async (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
                 const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
                 const brightness = Math.round((value as number) / LIGHTBULB_BRIGHTNESS_UNIT);
 
@@ -220,18 +220,18 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
                 });
                 await this.executeSetPayloads(ctx.deviceInfo, commands, this.accessToken);
                 callback(undefined);
-            });
+            }));
         return service;
     }
 
     registerAirPurifierService(): Service {
         const service = this.ensureServiceAvailability(this.api.hap.Service.AirPurifier);
         service.getCharacteristic(this.api.hap.Characteristic.Active)
-            .on(CharacteristicEventTypes.GET, this.wrap((callback: CharacteristicGetCallback) => {
+            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                 const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
                 callback(undefined, ctx.controlInfo.on ? this.api.hap.Characteristic.Active.ACTIVE : this.api.hap.Characteristic.Active.INACTIVE);
             }))
-            .on(CharacteristicEventTypes.SET, async (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
+            .on(CharacteristicEventTypes.SET, this.wrapSet(async (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
                 const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
                 const enabled = !!value;
                 if(enabled === ctx.controlInfo.on) {
@@ -250,20 +250,20 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
 
                 await this.executeSetPayload(ctx.deviceInfo, Field.POWER, enabled ? Power.ON : Power.OFF, this.accessToken);
                 callback(undefined);
-            });
+            }));
 
         service.getCharacteristic(this.api.hap.Characteristic.CurrentAirPurifierState)
-            .on(CharacteristicEventTypes.GET, this.wrap((callback: CharacteristicGetCallback) => {
+            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                 const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
                 callback(undefined, this.getCurrentAirPurifierState(ctx));
             }));
 
         service.getCharacteristic(this.api.hap.Characteristic.TargetAirPurifierState)
-            .on(CharacteristicEventTypes.GET, this.wrap((callback: CharacteristicGetCallback) => {
+            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                 const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
                 callback(undefined, this.getPurifierDrivingStrategy(ctx));
             }))
-            .on(CharacteristicEventTypes.SET, async (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
+            .on(CharacteristicEventTypes.SET, this.wrapSet(async (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
                 const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
                 if(!ctx.controlInfo.on || ctx.controlInfo.fanSpeed == FanSpeed.SHUTDOWN) {
                     callback(undefined);
@@ -286,7 +286,7 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
                     }
                 }
                 callback(undefined);
-            });
+            }));
 
         service.getCharacteristic(this.api.hap.Characteristic.RotationSpeed)
             .setProps({
@@ -295,11 +295,11 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
                 maxValue: 100, // Up to level 6
                 minStep: ROTATION_SPEED_UNIT
             })
-            .on(CharacteristicEventTypes.GET, this.wrap((callback: CharacteristicGetCallback) => {
+            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                 const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
                 callback(undefined, this.getRotationSpeedPercentage(ctx));
             }))
-            .on(CharacteristicEventTypes.SET, async (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
+            .on(CharacteristicEventTypes.SET, this.wrapSet(async (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
                 const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
                 const oldRotationSpeed = this.getRotationSpeed(ctx);
                 const newRotationSpeed = parseInt(((value as number) / ROTATION_SPEED_UNIT).toFixed(0));
@@ -332,7 +332,7 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
                     this.log.error("Characteristic: Invalid fan rotation speed (current rotation speed: %d, 0003=%s)", newRotationSpeed, ctx.controlInfo.fanSpeed);
                     callback(new Error("INVALID ROTATION SPEED"));
                 }
-            });
+            }));
         return service;
     }
 
@@ -357,27 +357,27 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
     registerAirQualityService(): Service {
         const service = this.ensureServiceAvailability(this.api.hap.Service.AirQualitySensor);
         service.getCharacteristic(this.api.hap.Characteristic.AirQuality)
-            .on(CharacteristicEventTypes.GET, this.wrap((callback: CharacteristicGetCallback) => {
+            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                 const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
 
                 callback(undefined, this.getCurrentAirQuality(ctx));
             }));
         service.getCharacteristic(this.api.hap.Characteristic.PM10Density)
-            .on(CharacteristicEventTypes.GET, this.wrap((callback: CharacteristicGetCallback) => {
+            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                 const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
                 const airQuality = ctx.indoorAirQuality;
 
                 callback(undefined, airQuality.pm10Density);
             }));
         service.getCharacteristic(this.api.hap.Characteristic.PM2_5Density)
-            .on(CharacteristicEventTypes.GET, this.wrap((callback: CharacteristicGetCallback) => {
+            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                 const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
                 const airQuality = ctx.indoorAirQuality;
 
                 callback(undefined, airQuality.pm25Density);
             }));
         service.getCharacteristic(this.api.hap.Characteristic.VOCDensity)
-            .on(CharacteristicEventTypes.GET, this.wrap((callback: CharacteristicGetCallback) => {
+            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                 const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
                 const airQuality = ctx.indoorAirQuality;
 
@@ -389,7 +389,7 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
     registerHumiditySensorService(): Service {
         const service = this.ensureServiceAvailability(this.api.hap.Service.HumiditySensor);
         service.getCharacteristic(this.api.hap.Characteristic.CurrentRelativeHumidity)
-            .on(CharacteristicEventTypes.GET, this.wrap((callback: CharacteristicGetCallback) => {
+            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                 const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
                 const airQuality = ctx.indoorAirQuality;
 
@@ -401,7 +401,7 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
     registerTemperatureSensorService(): Service {
         const service = this.ensureServiceAvailability(this.api.hap.Service.TemperatureSensor);
         service.getCharacteristic(this.api.hap.Characteristic.CurrentTemperature)
-            .on(CharacteristicEventTypes.GET, this.wrap((callback: CharacteristicGetCallback) => {
+            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                 const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
                 const airQuality = ctx.indoorAirQuality;
 
@@ -428,7 +428,7 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
             const service = new this.api.hap.Service.FilterMaintenance(filterName, filter.filterCode);
 
             service.getCharacteristic(this.api.hap.Characteristic.FilterChangeIndication)
-                .on(CharacteristicEventTypes.GET, this.wrap((callback: CharacteristicGetCallback) => {
+                .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                     // Filter Change Indication GET
                     const percentage = _getPercentage(this.platformAccessory.context as MarvelAirPurifierInterface, filterName);
 
@@ -441,7 +441,7 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
                     callback(undefined, indication);
                 }));
             service.getCharacteristic(this.api.hap.Characteristic.FilterLifeLevel)
-                .on(CharacteristicEventTypes.GET, this.wrap((callback: CharacteristicGetCallback) => {
+                .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
                     // Filter Life Level GET
                     const percentage = _getPercentage(this.platformAccessory.context as MarvelAirPurifierInterface, filterName);
                     callback(undefined, percentage);
