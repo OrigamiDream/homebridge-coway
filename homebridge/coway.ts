@@ -49,7 +49,7 @@ export class CowayService {
 
     private async parseAuthenticationCode(cookies: string): Promise<string> {
         const response = await this.executeLoginPayload(URL.OAUTH_URL, cookies).catch(error => error.response);
-        return response.request.path.match(/(?<=code=)(.*?)(?=&)/)[0];
+        return response.request.path.match(/(?<=state=)(.*?)$/)[0];
     }
 
     private async getAccessTokens(authenticationCode: string): Promise<AccessToken> {

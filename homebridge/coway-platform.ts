@@ -44,10 +44,17 @@ export class CowayPlatform implements DynamicPlatformPlugin {
         api.on(APIEvent.DID_FINISH_LAUNCHING, async () => {
             this.accessToken = await this.service.signIn(this.config);
 
-            await this.configureCowayDevices();
-            await this.refreshDevicesParallel();
-
-            this.enqueueDeviceRefreshInterval();
+            const success = await this.configureCowayDevices();
+            if(success) {
+                await this.refreshDevicesParallel();
+                this.enqueueDeviceRefreshInterval();
+            } else {
+                // Enqueue shutting down in 30 seconds
+                this.log.warn("It seems something went wrong with Coway services. Restarting in 30 seconds.");
+                setTimeout(() => {
+                    process.exit(1);
+                }, 1000 * 30);
+            }
         });
     }
 
@@ -95,16 +102,20 @@ export class CowayPlatform implements DynamicPlatformPlugin {
         this.log.info("Configuring cached accessory: %s", platformAccessory.displayName);
     }
 
-    async configureCowayDevices() {
+    async configureCowayDevices(): Promise<boolean> {
         // retrieve total 100 accessories in once
         const response = await this.service.executePayload(Endpoint.GET_DEVICE_INFO, {
             pageIndex: "0",
             pageSize: "100"
         }, this.accessToken);
+        if(!response.data.body) {
+            this.log.error("Coway service is offline.");
+            return false;
+        }
         const deviceInfos = response.data.body.deviceInfos;
         if(!deviceInfos.length) {
             this.log.warn("No Coway devices in your account");
-            return;
+            return false;
         }
         for(let i = 0; i < deviceInfos.length; i++) {
             const deviceInfo = deviceInfos[i] as Device;
@@ -126,6 +137,7 @@ export class CowayPlatform implements DynamicPlatformPlugin {
             });
             this.api.unregisterPlatformAccessories(Constants.PLUGIN_NAME, Constants.PLATFORM_NAME, accessoriesToRemove.map(accessory => accessory.getPlatformAccessory()));
         }
+        return true;
     }
 
     async addAccessory(deviceInfo: Device) {
