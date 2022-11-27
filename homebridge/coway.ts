@@ -12,6 +12,11 @@ export interface AccessToken {
     refreshToken: string;
 }
 
+export interface Session {
+    session: string;
+    cookies: string;
+}
+
 export interface PayloadCommand {
     key: Field;
     value: string;
@@ -26,30 +31,52 @@ export class CowayService {
         if(!config) {
             return undefined;
         }
-        const stateId = await this.parseStateId();
-        const cookies = await this.authenticate(config.username, config.password, stateId);
-        const authenticationCode = await this.parseAuthenticationCode(cookies);
+        const session = await this.parseSession();
+        const authenticationCode = await this.authenticate(config.username, config.password, session);
         return await this.getAccessTokens(authenticationCode);
     }
 
-    private async parseStateId(): Promise<string> {
-        const response = await this.wrapGet(URL.MEMBER_URL).catch(error => error.response);
-        return response.request.path.match(/(?<=state=)(.*?)$/)[0];
+    private async parseSession(): Promise<Session> {
+        const params = {
+            auth_type: "0",
+            response_type: "code",
+            client_id: Constants.CLIENT_ID,
+            ui_locales: "en-US",
+            dvc_cntry_id: "US",
+            redirect_uri: URL.NEW_REDIRECT_URL,
+        };
+        const queryString = new URLSearchParams(params).toString();
+        const response = await this.wrapGet(`${URL.NEW_SIGN_IN_URL}?${queryString}`).catch(error => error.response);
+        const matches = response.data.match(/(action=")(https:\/\/.*)(\?session_code=)(.*)(" )/);
+        return {
+            session: matches[matches.length - 2].replaceAll("&amp;", "&"),
+            cookies: Utils.parseSetCookies(response.headers["set-cookie"])
+        };
     }
 
-    private async authenticate(username: string, password: string, stateId: string): Promise<string> {
-        const response = await this.wrapPost(URL.SIGN_IN_URL, {
+    private async authenticate(username: string, password: string, session: Session): Promise<string> {
+        const data = {
+            termAgreementStatus: "",
+            idp: "",
             username: username,
-            password: Utils.encryptPassword(password),
-            state: stateId,
-            auto_login: "Y"
+            password: password,
+            rememberMe: "on"
+        };
+        const encoded = new URLSearchParams(data).toString();
+        const response = await this.wrapPost(`${URL.NEW_AUTHENTICATE_URL}?session_code=${session.session}`, encoded, {
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Cookie": session.cookies,
+            }
         }).catch(error => error.response);
-        return Utils.parseSetCookies(response.headers["set-cookie"]);
-    }
-
-    private async parseAuthenticationCode(cookies: string): Promise<string> {
-        const response = await this.executeLoginPayload(URL.OAUTH_URL, cookies).catch(error => error.response);
-        return response.request.path.match(/(?<=state=)(.*?)$/)[0];
+        const path = response.request.path.split('?')[1];
+        const splits = path.split('&');
+        const dicts: { [key: string]: string } = {};
+        for(let i = 0; i < splits.length; i++) {
+            const kv = splits[i].split('=');
+            dicts[kv[0]] = kv[1];
+        }
+        return dicts["code"];
     }
 
     private async getAccessTokens(authenticationCode: string): Promise<AccessToken> {
@@ -57,8 +84,8 @@ export class CowayService {
             authCode: authenticationCode,
             isMobile: "M",
             langCd: "en",
-            osType: "1",
-            redirectUrl: URL.REDIRECT_URL,
+            osType: "2",
+            redirectUrl: URL.NEW_REDIRECT_URL,
             serviceCode: Constants.SERVICE_CODE
         }
         const response = await this.executePayload(Endpoint.GET_ACCESS_TOKEN, accessTokenRequest).catch(error => error.response);
@@ -66,28 +93,6 @@ export class CowayService {
             accessToken: response.data.header.accessToken,
             refreshToken: response.data.header.refreshToken
         };
-    }
-
-    private async executeLoginPayload(url: string, cookies?: string) {
-        const headers: { [key: string]: string } = {
-            "User-Agent": Constants.USER_AGENT
-        }
-        if(cookies) {
-            headers["Cookie"] = cookies;
-        }
-        const params = {
-            auth_type: "0",
-            response_type: "code",
-            client_id: Constants.CLIENT_ID,
-            scope: "login",
-            lang: "en_US",
-            redirect_url: URL.REDIRECT_URL
-        }
-        url += url.indexOf("?") !== -1 ? "&" : "?";
-        url += new URLSearchParams(params).toString();
-        return await this.wrapGet(url, {
-            headers: headers
-        });
     }
 
     async executeSetPayloads(deviceInfo: Device, inputs: PayloadCommand[], accessToken?: AccessToken) {
