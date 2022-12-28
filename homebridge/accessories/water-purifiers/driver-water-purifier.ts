@@ -13,7 +13,7 @@ import {DeviceType, Endpoint} from "../../enumerations";
 import {Device} from "../../interfaces/device";
 import {CowayService} from "../../coway";
 import {ControlInfo, DriverWaterPurifierInterface} from "./interfaces";
-import {ButtonLock, ColdWaterLock, Field, HotWaterLock} from "./enumerations";
+import {ButtonLock, ColdWaterLock, FaucetState, Field, HotWaterLock} from "./enumerations";
 
 interface WaterPurifierLockState {
     currentState: CharacteristicValue;
@@ -49,6 +49,7 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
         await this.refreshCharacteristics(() => {
             // Valve
             this.valveService?.setCharacteristic(this.api.hap.Characteristic.Active, this.api.hap.Characteristic.Active.INACTIVE);
+            this.valveService?.setCharacteristic(this.api.hap.Characteristic.InUse, this.getValveState(ctx));
 
             // Locks
             const coldWaterState = this.getColdWaterLockState(ctx);
@@ -128,6 +129,8 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
             coldWaterLock: status[Field.COLD_WATER_LOCK] as ColdWaterLock, // 1 → UNLOCK, 0 → LOCKED
             hotWaterLock: status[Field.HOT_WATER_LOCK] as HotWaterLock, // 1 → UNLOCK, 2 → LOCKED
             buttonLock: status[Field.BUTTON_LOCK] as ButtonLock, // 0 → UNLOCK, 1 → LOCKED
+            faucetState: status[Field.FAUCET_STATE] as FaucetState, // 0 → IDLE, 1 → UNK, 2 → UV_STERILIZATION
+            flowingMilliliter: parseInt(status[Field.FLOWING_MILLILITER])
         };
     }
 
@@ -135,8 +138,7 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
         const service = this.ensureServiceAvailability(this.api.hap.Service.Valve);
         service.getCharacteristic(this.api.hap.Characteristic.Active)
             .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
-                // TODO: Implement the GET characteristic handler
-                callback(undefined, this.api.hap.Characteristic.Active.INACTIVE);
+                callback(undefined, this.api.hap.Characteristic.Active.ACTIVE);
             }))
             .on(CharacteristicEventTypes.SET, this.wrapSet((value: CharacteristicValue, callback: CharacteristicSetCallback) => {
                 // TODO: Implement the SET characteristic handler
@@ -144,8 +146,8 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
             }));
         service.getCharacteristic(this.api.hap.Characteristic.InUse)
             .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
-                // TODO: Implement the GET characteristic handler
-                callback(undefined, this.api.hap.Characteristic.InUse.NOT_IN_USE);
+                const ctx = this.platformAccessory.context as DriverWaterPurifierInterface;
+                callback(undefined, this.getValveState(ctx));
             }));
         service.getCharacteristic(this.api.hap.Characteristic.ValveType)
             .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
@@ -212,6 +214,15 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
                 callback(undefined);
             }));
         return service;
+    }
+
+    getValveState(ctx: DriverWaterPurifierInterface): CharacteristicValue {
+        const controlInfo = ctx.controlInfo;
+        if(controlInfo.faucetState == FaucetState.IDLE && controlInfo.flowingMilliliter > 0) {
+            return this.api.hap.Characteristic.InUse.IN_USE;
+        } else {
+            return this.api.hap.Characteristic.InUse.NOT_IN_USE;
+        }
     }
 
     getColdWaterLockState(ctx: DriverWaterPurifierInterface): WaterPurifierLockState {

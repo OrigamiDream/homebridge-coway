@@ -1,12 +1,14 @@
 import {AccessoryInterface} from "../accessory";
-import {ButtonLock, ColdWaterLock, HotWaterLock} from "./enumerations";
+import {ButtonLock, ColdWaterLock, HotWaterLock, FaucetState} from "./enumerations";
 
 export interface DriverWaterPurifierInterface extends AccessoryInterface {
-    controlInfo: ControlInfo
+    controlInfo: ControlInfo;
 }
 
 export interface ControlInfo {
-    coldWaterLock: ColdWaterLock
-    hotWaterLock: HotWaterLock
-    buttonLock: ButtonLock
+    coldWaterLock: ColdWaterLock;
+    hotWaterLock: HotWaterLock;
+    buttonLock: ButtonLock;
+    faucetState: FaucetState;
+    flowingMilliliter: number;
 }
