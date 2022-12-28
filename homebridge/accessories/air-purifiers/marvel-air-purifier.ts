@@ -51,7 +51,7 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
             ctx.controlInfo = this.getControlInfo(controlInfo);
         } catch(e: any) {
             this.log.error(`${e.name}: ${e.message}`);
-            this.log.debug("Error happened with fetched responses:");
+            this.log.debug("An error has occurred with fetched responses:");
             this.log.debug("Filter Info", filterInfo);
             this.log.debug("Status Info", statusInfo);
             this.log.debug("Control Info", controlInfo);
