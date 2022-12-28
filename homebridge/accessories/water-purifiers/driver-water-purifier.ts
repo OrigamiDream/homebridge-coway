@@ -41,10 +41,16 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
         await super.refresh(responses);
 
         const controlInfo = responses[Endpoint.GET_DEVICE_CONTROL_INFO];
-        const statusInfo = responses[Endpoint.GET_DEVICE_STATUS_INFO]["IAQ"][0];
+        const statusInfo = responses[Endpoint.GET_DEVICE_STATUS_INFO];
 
         const ctx = this.platformAccessory.context as DriverWaterPurifierInterface;
-        ctx.controlInfo = this.getControlInfo(controlInfo);
+        try {
+            ctx.controlInfo = this.getControlInfo(controlInfo);
+        } catch(e: any) {
+            this.log.error(`${e.name}: ${e.message}`);
+            this.log.debug("An error has occurred with fetched responses:");
+            this.log.debug("Filter Info", controlInfo);
+        }
 
         await this.refreshCharacteristics(() => {
             // Valve
@@ -64,8 +70,14 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
         this.performDifferencesPrinting(this.latestControlInfo, controlInfo, "Control");
         this.latestControlInfo = controlInfo;
 
-        this.performDifferencesPrinting(this.latestStatusInfo, statusInfo, "Status");
-        this.latestStatusInfo = statusInfo;
+        try {
+            this.performDifferencesPrinting(this.latestStatusInfo, statusInfo["IAQ"][0], "Status");
+            this.latestStatusInfo = statusInfo["IAQ"][0];
+        } catch(e: any) {
+            this.log.error(`${e.name}: ${e.message}`);
+            this.log.debug("An error has occurred with fetched responses:");
+            this.log.debug("Status Info", statusInfo);
+        }
     }
 
     private printDifferences(newInfo: any, oldInfo: any, messages: string[]) {
