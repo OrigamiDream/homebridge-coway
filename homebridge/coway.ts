@@ -22,6 +22,22 @@ export interface PayloadCommand {
     value: string;
 }
 
+export interface LogInRequest {
+    termAgreementStatus: "";
+    idp: "";
+    username: string;
+    password: string;
+    rememberMe: "on";
+}
+
+export interface PasswordUpdateRequest {
+    cmd: "change_next_time";
+    checkPasswordNeededYn: "Y";
+    current_password: "";
+    new_password: "";
+    new_password_confirm: "";
+}
+
 export class CowayService {
 
     constructor(private readonly log: Logging) {
@@ -32,7 +48,13 @@ export class CowayService {
             return undefined;
         }
         const session = await this.parseSession();
-        const authenticationCode = await this.authenticate(config.username, config.password, session);
+        const authenticationCode = await this.authenticate({
+            termAgreementStatus: "",
+            idp: "",
+            username: config.username,
+            password: config.password,
+            rememberMe: "on"
+        }, session);
         return await this.getAccessTokens(authenticationCode);
     }
 
@@ -47,36 +69,48 @@ export class CowayService {
         };
         const queryString = new URLSearchParams(params).toString();
         const response = await this.wrapGet(`${URL.NEW_SIGN_IN_URL}?${queryString}`).catch(error => error.response);
-        const matches = response.data.match(/(action=")(https:\/\/.*)(\?session_code=)(.*)(" )/);
         return {
-            session: matches[matches.length - 2].replaceAll("&amp;", "&"),
+            session: this.parseSessionCode(response),
             cookies: Utils.parseSetCookies(response.headers["set-cookie"])
-        };
+        }
     }
 
-    private async authenticate(username: string, password: string, session: Session): Promise<string> {
-        const data = {
-            termAgreementStatus: "",
-            idp: "",
-            username: username,
-            password: password,
-            rememberMe: "on"
-        };
-        const encoded = new URLSearchParams(data).toString();
+    private parseSessionCode(response: any): string {
+        const matches = response.data.match(/(action=")(https:\/\/.*)(\?session_code=)(.*)(" )/);
+        return matches[matches.length - 2].replaceAll("&amp;", "&");
+    }
+
+    private async authenticate(request: LogInRequest | PasswordUpdateRequest, session: Session): Promise<string> {
+        const encoded = new URLSearchParams(request as any).toString();
         const response = await this.wrapPost(`${URL.NEW_AUTHENTICATE_URL}?session_code=${session.session}`, encoded, {
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
                 "Cookie": session.cookies,
             }
         }).catch(error => error.response);
-        const path = response.request.path.split('?')[1];
-        const splits = path.split('&');
-        const dicts: { [key: string]: string } = {};
-        for(let i = 0; i < splits.length; i++) {
-            const kv = splits[i].split('=');
-            dicts[kv[0]] = kv[1];
+
+        // Bypassing password change page
+        if(response.request.path.indexOf("redirect_bridge.html") === -1) {
+            return this.authenticate({
+                cmd: "change_next_time",
+                checkPasswordNeededYn: "Y",
+                current_password: "",
+                new_password: "",
+                new_password_confirm: ""
+            }, {
+                session: this.parseSessionCode(response),
+                cookies: session.cookies
+            });
+        } else {
+            const path = response.request.path.split('?')[1];
+            const splits = path.split('&');
+            const dicts: { [key: string]: string } = {};
+            for(let i = 0; i < splits.length; i++) {
+                const kv = splits[i].split('=');
+                dicts[kv[0]] = kv[1];
+            }
+            return dicts["code"];
         }
-        return dicts["code"];
     }
 
     private async getAccessTokens(authenticationCode: string): Promise<AccessToken> {
