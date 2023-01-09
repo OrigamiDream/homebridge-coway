@@ -54,7 +54,7 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
 
         await this.refreshCharacteristics(() => {
             // Valve
-            this.valveService?.setCharacteristic(this.api.hap.Characteristic.Active, this.api.hap.Characteristic.Active.INACTIVE);
+            this.valveService?.setCharacteristic(this.api.hap.Characteristic.Active, this.getValveActivity(ctx));
             this.valveService?.setCharacteristic(this.api.hap.Characteristic.InUse, this.getValveState(ctx));
 
             // Locks
@@ -150,7 +150,8 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
         const service = this.ensureServiceAvailability(this.api.hap.Service.Valve);
         service.getCharacteristic(this.api.hap.Characteristic.Active)
             .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
-                callback(undefined, this.api.hap.Characteristic.Active.ACTIVE);
+                const ctx = this.platformAccessory.context as DriverWaterPurifierInterface;
+                callback(undefined, this.getValveActivity(ctx));
             }))
             .on(CharacteristicEventTypes.SET, this.wrapSet((value: CharacteristicValue, callback: CharacteristicSetCallback) => {
                 // TODO: Implement the SET characteristic handler
@@ -234,6 +235,15 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
             return this.api.hap.Characteristic.InUse.IN_USE;
         } else {
             return this.api.hap.Characteristic.InUse.NOT_IN_USE;
+        }
+    }
+
+    getValveActivity(ctx: DriverWaterPurifierInterface): CharacteristicValue {
+        const controlInfo = ctx.controlInfo;
+        if(controlInfo.faucetState == FaucetState.IDLE && controlInfo.flowingMilliliter > 0) {
+            return this.api.hap.Characteristic.Active.ACTIVE;
+        } else {
+            return this.api.hap.Characteristic.Active.INACTIVE;
         }
     }
 
