@@ -23,9 +23,6 @@ interface WaterPurifierLockState {
 // DRIVER Water Purifier
 export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface> {
 
-    private latestControlInfo?: any;
-    private latestStatusInfo?: any;
-
     private valveService?: Service;
     private coldWaterLockService?: Service;
     private hotWaterLockService?: Service;
@@ -34,14 +31,12 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
         super(log, api, DeviceType.DRIVER_WATER_PURIFIER, deviceInfo, service, platformAccessory);
 
         this.endpoints.push(Endpoint.GET_DEVICE_CONTROL_INFO);
-        this.endpoints.push(Endpoint.GET_DEVICE_STATUS_INFO);
     }
 
     async refresh(responses: AccessoryResponses): Promise<void> {
         await super.refresh(responses);
 
         const controlInfo = responses[Endpoint.GET_DEVICE_CONTROL_INFO];
-        const statusInfo = responses[Endpoint.GET_DEVICE_STATUS_INFO];
 
         const ctx = this.platformAccessory.context as DriverWaterPurifierInterface;
         try {
@@ -66,54 +61,6 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
             this.hotWaterLockService?.setCharacteristic(this.api.hap.Characteristic.LockTargetState, hotWaterState.targetState);
             this.hotWaterLockService?.setCharacteristic(this.api.hap.Characteristic.LockCurrentState, hotWaterState.currentState);
         });
-
-        this.performDifferencesPrinting(this.latestControlInfo, controlInfo, "Control");
-        this.latestControlInfo = controlInfo;
-
-        try {
-            this.performDifferencesPrinting(this.latestStatusInfo, statusInfo["IAQ"][0], "Status");
-            this.latestStatusInfo = statusInfo["IAQ"][0];
-        } catch(e: any) {
-            this.log.error(`${e.name}: ${e.message}`);
-            this.log.debug("An error has occurred with fetched responses:");
-            this.log.debug("Status Info", statusInfo);
-        }
-    }
-
-    private printDifferences(newInfo: any, oldInfo: any, messages: string[]) {
-        const newKeys = Object.keys(newInfo);
-        const oldKeys = Object.keys(oldInfo);
-        for(let i = 0; i < oldKeys.length; i++) {
-            const oldKey = oldKeys[i];
-            const newKey = newKeys[i];
-            if(oldKey !== newKey) {
-                this.log.warn("Key sequences have been changed. It is fatal");
-                continue;
-            }
-
-            const oldValue = oldInfo[oldKey];
-            const newValue = newInfo[newKey];
-            if(typeof oldValue === 'object' || typeof newValue === 'object') {
-                messages = messages.concat(this.printDifferences(newValue, oldValue, []));
-            } else if(oldValue !== newValue) {
-                messages.push(`${oldKey}: ${oldValue} → ${newValue}`);
-            }
-        }
-        return messages;
-    }
-
-    private performDifferencesPrinting(oldInfo: any, newInfo: any, title: string) {
-        if(!oldInfo) {
-            return;
-        }
-        const messages = this.printDifferences(newInfo, oldInfo, []);
-        if(messages.length) {
-            this.log.debug(`===CHANGED=== :: ${title}`);
-            for(const message of messages) {
-                this.log.debug(message);
-            }
-            this.log.debug(`============= :: ${title}`);
-        }
     }
 
     async configure() {
