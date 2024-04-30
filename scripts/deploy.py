@@ -22,7 +22,7 @@ def build_ssh_address(username, ip_address):
 def main():
     username = get_default_environmental_variable('HOMEBRIDGE_PI_USERNAME', lambda: input('Enter username: '))
     ip_address = get_default_environmental_variable('HOMEBRIDGE_PI_IP_ADDRESS', lambda: input('Enter ip address: '))
-    port = get_default_environmental_variable('HOMEBRIDGE_PI_PORT', 22)
+    port = get_default_environmental_variable('HOMEBRIDGE_PI_PORT', lambda: 22)
     pem_file = get_default_environmental_variable('HOMEBRIDGE_PI_SSH_PEM', lambda: input('Enter PEM file path: '))
     pem_file = pem_file.replace(' ', '\\ ')
 
