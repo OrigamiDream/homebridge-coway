@@ -31,7 +31,7 @@ interface ExpirablePayloadCommand extends PayloadCommand {
 
 const COMMAND_MAXIMUM_SKIPS = 3;
 
-export type CharacteristicRefreshingCallback = () => void;
+export type CharacteristicRefreshingCallback = () => void | Promise<void>;
 export type CharacteristicGetListener = (callback: CharacteristicGetCallback) => void;
 export type CharacteristicSetListener = (value: CharacteristicValue, callback: CharacteristicSetCallback) => void;
 
@@ -128,12 +128,15 @@ export class Accessory<T extends AccessoryInterface> {
     async refresh(responses: AccessoryResponses) {
         if(Endpoint.GET_DEVICE_CONTROL_INFO in responses) {
             const controlInfo = responses[Endpoint.GET_DEVICE_CONTROL_INFO];
+            if(!controlInfo) {
+                this.isConnected = false;
+                return;
+            }
             const info = controlInfo["controlStatus"];
             const commandsToFlush: ExpirablePayloadCommand[] = [];
             const commandsToPurge: ExpirablePayloadCommand[] = [];
 
             let skipped = 0;
-            let purged = 0;
             for(const command of this.enqueuedPayloads) {
                 const fetchedValue = info[command.key];
                 const desiredValue = command.value;
@@ -148,7 +151,6 @@ export class Accessory<T extends AccessoryInterface> {
                     // Too many skips will be purged automatically
                     if(command.skips >= COMMAND_MAXIMUM_SKIPS) {
                         commandsToPurge.push(command);
-                        purged++;
                     } else {
                         skipped++;
                     }

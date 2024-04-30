@@ -40,22 +40,20 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
     async refresh(responses: AccessoryResponses): Promise<void> {
         await super.refresh(responses);
 
+        if(!this.isConnected) {
+            this.log.debug('Cannot refresh the accessory: %s', this.getPlatformAccessory().displayName);
+            this.log.debug('The accessory response:', responses);
+            return;
+        }
+
         const filterInfo = responses[Endpoint.GET_DEVICE_FILTER_INFO];
         const statusInfo = responses[Endpoint.GET_DEVICE_STATUS_INFO];
         const controlInfo = responses[Endpoint.GET_DEVICE_CONTROL_INFO];
 
         const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
-        try {
-            ctx.filterInfos = this.getFilterInfos(filterInfo);
-            ctx.indoorAirQuality = this.getIndoorAirQuality(statusInfo);
-            ctx.controlInfo = this.getControlInfo(controlInfo);
-        } catch(e: any) {
-            this.log.error(`${e.name}: ${e.message}`);
-            this.log.debug("An error has occurred with fetched responses:");
-            this.log.debug("Filter Info", filterInfo);
-            this.log.debug("Status Info", statusInfo);
-            this.log.debug("Control Info", controlInfo);
-        }
+        ctx.filterInfos = this.getFilterInfos(filterInfo);
+        ctx.indoorAirQuality = this.getIndoorAirQuality(statusInfo);
+        ctx.controlInfo = this.getControlInfo(controlInfo);
 
         await this.refreshCharacteristics(() => {
             // Air Purifiers
@@ -86,19 +84,21 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
         await super.configure();
 
         const responses = await this.refreshDevice();
-        const filterInfo = responses[Endpoint.GET_DEVICE_FILTER_INFO];
-        const statusInfo = responses[Endpoint.GET_DEVICE_STATUS_INFO];
-        const controlInfo = responses[Endpoint.GET_DEVICE_CONTROL_INFO];
+        if(this.isConnected) {
+            const filterInfo = responses[Endpoint.GET_DEVICE_FILTER_INFO];
+            const statusInfo = responses[Endpoint.GET_DEVICE_STATUS_INFO];
+            const controlInfo = responses[Endpoint.GET_DEVICE_CONTROL_INFO];
 
-        this.replace({
-            deviceType: this.deviceType,
-            deviceInfo: this.deviceInfo,
-            init: false,
-            configured: true,
-            filterInfos: this.getFilterInfos(filterInfo),
-            indoorAirQuality: this.getIndoorAirQuality(statusInfo),
-            controlInfo: this.getControlInfo(controlInfo)
-        });
+            this.replace({
+                deviceType: this.deviceType,
+                deviceInfo: this.deviceInfo,
+                init: false,
+                configured: true,
+                filterInfos: this.getFilterInfos(filterInfo),
+                indoorAirQuality: this.getIndoorAirQuality(statusInfo),
+                controlInfo: this.getControlInfo(controlInfo)
+            });
+        }
 
         this.airPurifierService = this.registerAirPurifierService();
 

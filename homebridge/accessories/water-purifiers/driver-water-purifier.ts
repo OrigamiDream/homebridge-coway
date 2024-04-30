@@ -36,16 +36,16 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
     async refresh(responses: AccessoryResponses): Promise<void> {
         await super.refresh(responses);
 
+        if(!this.isConnected) {
+            this.log.debug('Cannot refresh the accessory: %s', this.getPlatformAccessory().displayName);
+            this.log.debug('The accessory response:', responses);
+            return;
+        }
+
         const controlInfo = responses[Endpoint.GET_DEVICE_CONTROL_INFO];
 
         const ctx = this.platformAccessory.context as DriverWaterPurifierInterface;
-        try {
-            ctx.controlInfo = this.getControlInfo(controlInfo);
-        } catch(e: any) {
-            this.log.error(`${e.name}: ${e.message}`);
-            this.log.debug("An error has occurred with fetched responses:");
-            this.log.debug("Filter Info", controlInfo);
-        }
+        ctx.controlInfo = this.getControlInfo(controlInfo);
 
         await this.refreshCharacteristics(() => {
             // Valve
@@ -67,15 +67,17 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
         await super.configure();
 
         const responses = await this.refreshDevice();
-        const controlInfo = responses[Endpoint.GET_DEVICE_CONTROL_INFO];
+        if(this.isConnected) {
+            const controlInfo = responses[Endpoint.GET_DEVICE_CONTROL_INFO];
 
-        this.replace({
-            deviceType: this.deviceType,
-            deviceInfo: this.deviceInfo,
-            init: false,
-            configured: true,
-            controlInfo: this.getControlInfo(controlInfo)
-        });
+            this.replace({
+                deviceType: this.deviceType,
+                deviceInfo: this.deviceInfo,
+                init: false,
+                configured: true,
+                controlInfo: this.getControlInfo(controlInfo)
+            });
+        }
 
         this.valveService = this.registerValveService();
         this.coldWaterLockService = this.registerColdWaterLockService();
