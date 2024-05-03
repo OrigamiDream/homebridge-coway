@@ -188,9 +188,9 @@ export class CowayService {
         }
         let response;
         if(httpMethod === 'GET') {
-            response = this.wrapGet(url, { headers: headers }, true);
+            response = this.wrapGet(url, { headers: headers }, !debug);
         } else {
-            response = this.wrapPost(url, body, { headers: headers }, true);
+            response = this.wrapPost(url, body, { headers: headers }, !debug);
         }
         return await response.then((res) => res.data).catch((error) => {
             this.log.debug(error.response.data);

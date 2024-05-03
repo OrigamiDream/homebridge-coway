@@ -119,10 +119,9 @@ export class CowayPlatform implements DynamicPlatformPlugin {
         const response = await this.service.executeIoCareGetPayload(IoCareEndpoint.GET_USER_DEVICES, {
             pageIndex: '0',
             pageSize: '100',
-        }, this.accessToken, true).catch((error) => {
+        }, this.accessToken).catch((error) => {
             return error.response;
         });
-        this.log.debug('!!!!!!!!!!! %s', JSON.stringify(response));
         if(!response.data?.deviceInfos) {
             this.log.error('Coway service is offline.');
             return false;
