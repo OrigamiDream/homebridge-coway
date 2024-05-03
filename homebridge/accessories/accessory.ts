@@ -11,12 +11,12 @@ import {
 } from "homebridge";
 import {CowayConfig} from "../interfaces/config";
 import {AccessToken, CowayService, PayloadCommand} from "../coway";
-import {DeviceType, Endpoint, Field} from "../enumerations";
+import {DeviceType, EndpointPath, Field} from "../enumerations";
 import {Device} from "../interfaces/device";
-import {DeviceStatusRequest} from "../interfaces/requests";
+import {DeviceControlInfoRequest, IoCarePayloadRequest,} from "../interfaces/requests";
 
 export type ServiceType = WithUUID<typeof Service>;
-export type AccessoryResponses = { [key in Endpoint]?: any }
+export type AccessoryResponses = { [key in EndpointPath]?: any }
 
 export interface AccessoryInterface {
     deviceType: string;
@@ -37,7 +37,7 @@ export type CharacteristicSetListener = (value: CharacteristicValue, callback: C
 
 export class Accessory<T extends AccessoryInterface> {
 
-    protected readonly endpoints: Endpoint[] = [];
+    protected readonly endpoints: EndpointPath[] = [];
     protected readonly enqueuedPayloads: ExpirablePayloadCommand[] = [];
 
     // Lazy-inits
@@ -55,7 +55,7 @@ export class Accessory<T extends AccessoryInterface> {
                 protected readonly platformAccessory: PlatformAccessory) {
     }
 
-    getEndpoints(): Endpoint[] {
+    getEndpoints(): EndpointPath[] {
         return this.endpoints;
     }
 
@@ -66,6 +66,10 @@ export class Accessory<T extends AccessoryInterface> {
 
     getPlatformAccessory(): PlatformAccessory {
         return this.platformAccessory;
+    }
+
+    getDeviceId(): string {
+        return this.deviceInfo.barcode;
     }
 
     protected replace(context: T) {
@@ -90,22 +94,32 @@ export class Accessory<T extends AccessoryInterface> {
         return service;
     }
 
-    private createDevicePayload(): DeviceStatusRequest {
+    private createControlPayload(): DeviceControlInfoRequest {
         return {
-            barcode: this.deviceInfo.barcode,
+            devId: this.deviceInfo.barcode,
+            mqttDevice: "true",
             dvcBrandCd: this.deviceInfo.dvcBrandCd,
-            prodName: this.deviceInfo.prodName,
-            stationCd: this.deviceInfo.stationCd,
-            resetDttm: this.deviceInfo.resetDttm,
             dvcTypeCd: this.deviceInfo.dvcTypeCd,
-            refreshFlag: "true"
+            prodName: this.deviceInfo.prodName,
         };
     }
 
-    async retrieveDeviceState(endpoint: Endpoint) {
-        return await this.service.executePayload(endpoint, this.createDevicePayload(), this.accessToken, false).catch(error => {
-            return error.response;
-        });
+    createPayload(endpoint: EndpointPath): IoCarePayloadRequest | undefined {
+        switch (endpoint) {
+            case EndpointPath.DEVICES_CONTROL:
+                return this.createControlPayload();
+            default:
+                return undefined;
+        }
+    }
+
+    async retrieveDeviceState(endpoint: EndpointPath) {
+        const path = endpoint.replace("{deviceId}", this.getDeviceId());
+        const payload = this.createPayload(endpoint);
+        if(!payload) {
+            return undefined;
+        }
+        return await this.service.executeIoCareGetPayload(path, payload, this.accessToken);
     }
 
     zipEndpointResponses(responses: any[]) {
@@ -114,7 +128,7 @@ export class Accessory<T extends AccessoryInterface> {
         }
         const map: AccessoryResponses = {};
         for(let i = 0; i < responses.length; i++) {
-            map[this.endpoints[i]] = responses[i].data["body"];
+            map[this.endpoints[i]] = responses[i].data;
         }
         return map;
     }
@@ -126,8 +140,8 @@ export class Accessory<T extends AccessoryInterface> {
     }
 
     async refresh(responses: AccessoryResponses) {
-        if(Endpoint.GET_DEVICE_CONTROL_INFO in responses) {
-            const controlInfo = responses[Endpoint.GET_DEVICE_CONTROL_INFO];
+        if(EndpointPath.DEVICES_CONTROL in responses) {
+            const controlInfo: any | undefined = responses[EndpointPath.DEVICES_CONTROL];
             if(!controlInfo) {
                 this.isConnected = false;
                 return;

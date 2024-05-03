@@ -1,17 +1,14 @@
-export type PayloadRequest =
-    AccessTokenRequest |
-    DeviceListRequest |
-    DeviceStatusRequest |
-    DeviceUpdateRequest |
-    DeviceRefreshRequest;
+export type IoCarePayloadRequest = AccessTokenRequest | DeviceListRequest | DeviceConnectionRequest |
+    DeviceControlInfoRequest | DeviceHomeRequest | DeviceFilterInfoRequest | DeviceControlRequest |
+    RefreshTokenRequest;
 
 export interface AccessTokenRequest {
     authCode: string;
-    isMobile: string;
-    langCd: string;
-    osType: string;
     redirectUrl: string;
-    serviceCode: string;
+}
+
+export interface RefreshTokenRequest {
+    refreshToken: string;
 }
 
 export interface DeviceListRequest {
@@ -19,34 +16,51 @@ export interface DeviceListRequest {
     pageSize: string;
 }
 
-export interface DeviceStatusRequest {
+export interface DeviceConnectionRequest {
+    devIds: string;
+}
+
+export interface DeviceHomeRequest {
+    admdongCd: string;
     barcode: string;
     dvcBrandCd: string;
     prodName: string;
     stationCd: string;
+    zipCode: string;
     resetDttm: string;
+    deviceType: string;
+    mqttDevice: string;
+    orderNo: string;
+    membershipYn: string;
+    selfYn: string;
+}
+
+export interface DeviceControlInfoRequest {
+    devId: string;
+    mqttDevice: string;
+    dvcBrandCd: string;
     dvcTypeCd: string;
-    refreshFlag: string;
+    prodName: string;
+}
+
+export interface DeviceFilterInfoRequest {
+    devId: string;
+    orderNo: string;
+    sellTypeCd: string;
+    prodName: string;
+    membershipYn: string;
+    mqttDevice: string;
+    selfYn: string;
 }
 
 export interface DeviceUpdateCommand {
-    comdVal: string;
     funcId: string;
+    cmdVal: string;
 }
 
-export interface DeviceUpdateRequest {
-    barcode: string;
-    dvcBrandCd: string;
-    dvcTypeCd: string;
-    prodName: string;
+export interface DeviceControlRequest {
+    devId: string;
     funcList: DeviceUpdateCommand[];
-    refreshFlag: boolean;
-    mqttDevice: boolean;
-}
-
-export interface DeviceRefreshRequest {
-    barcode: string;
-    dvcBrandCd: string;
-    prodName: string;
     dvcTypeCd: string;
+    isMultiControl: boolean;
 }

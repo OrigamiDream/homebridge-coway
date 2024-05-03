@@ -2,7 +2,7 @@ import {API, APIEvent, DynamicPlatformPlugin, Logging, PlatformAccessory, Platfo
 import {AccessToken, CowayService} from "./coway";
 import {CowayConfig} from "./interfaces/config";
 import {Accessory, AccessoryInterface} from "./accessories/accessory";
-import {Constants, DeviceType, Endpoint} from "./enumerations";
+import {Constants, DeviceType, IoCareEndpoint} from "./enumerations";
 import {MarvelAirPurifier} from "./accessories/air-purifiers/marvel-air-purifier";
 import {DriverWaterPurifier} from "./accessories/water-purifiers/driver-water-purifier";
 import {Device} from "./interfaces/device";
@@ -102,24 +102,41 @@ export class CowayPlatform implements DynamicPlatformPlugin {
         this.log.info("Configuring cached accessory: %s", platformAccessory.displayName);
     }
 
+    async checkAndRefreshDevicesOnline(devices: Device[]) {
+        const response = await this.service.executeIoCareGetPayload(IoCareEndpoint.GET_DEVICE_CONNECTIONS, {
+            devIds: devices.map((e) => e.barcode).join(','),
+        }, this.accessToken);
+        for(const info of response.data) {
+            devices.filter((e) => e.barcode === info['devId'])
+                .forEach((e) => {
+                    e.netStatus = info['netStatus'];
+                });
+        }
+    }
+
     async configureCowayDevices(): Promise<boolean> {
         // retrieve total 100 accessories in once
-        const response = await this.service.executePayload(Endpoint.GET_DEVICE_INFO, {
-            pageIndex: "0",
-            pageSize: "100"
-        }, this.accessToken);
-        if(!response.data.body) {
-            this.log.error("Coway service is offline.");
+        const response = await this.service.executeIoCareGetPayload(IoCareEndpoint.GET_USER_DEVICES, {
+            pageIndex: '0',
+            pageSize: '100',
+        }, this.accessToken, true).catch((error) => {
+            return error.response;
+        });
+        this.log.debug('!!!!!!!!!!! %s', JSON.stringify(response));
+        if(!response.data?.deviceInfos) {
+            this.log.error('Coway service is offline.');
             return false;
         }
-        const deviceInfos = response.data.body.deviceInfos;
+        const deviceInfos: any[] = response.data.deviceInfos;
         if(!deviceInfos.length) {
             this.log.warn("No Coway devices in your account");
             return false;
         }
-        for(let i = 0; i < deviceInfos.length; i++) {
-            const deviceInfo = deviceInfos[i] as Device;
-            await this.addAccessory(deviceInfo);
+
+        const devices: Device[] = deviceInfos.map((e) => e as Device);
+        await this.checkAndRefreshDevicesOnline(devices);
+        for(const device of devices) {
+            await this.addAccessory(device);
         }
 
         const accessoriesToRemove = [];

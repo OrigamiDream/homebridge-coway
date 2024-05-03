@@ -9,7 +9,7 @@ import {
     PlatformAccessory,
     Service
 } from "homebridge";
-import {DeviceType, Endpoint} from "../../enumerations";
+import {DeviceType, EndpointPath} from "../../enumerations";
 import {Device} from "../../interfaces/device";
 import {CowayService} from "../../coway";
 import {ControlInfo, DriverWaterPurifierInterface} from "./interfaces";
@@ -30,7 +30,7 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
     constructor(log: Logging, api: API, deviceInfo: Device, service: CowayService, platformAccessory: PlatformAccessory) {
         super(log, api, DeviceType.DRIVER_WATER_PURIFIER, deviceInfo, service, platformAccessory);
 
-        this.endpoints.push(Endpoint.GET_DEVICE_CONTROL_INFO);
+        this.endpoints.push(EndpointPath.DEVICES_CONTROL);
     }
 
     async refresh(responses: AccessoryResponses): Promise<void> {
@@ -42,7 +42,7 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
             return;
         }
 
-        const controlInfo = responses[Endpoint.GET_DEVICE_CONTROL_INFO];
+        const controlInfo = responses[EndpointPath.DEVICES_CONTROL];
 
         const ctx = this.platformAccessory.context as DriverWaterPurifierInterface;
         ctx.controlInfo = this.getControlInfo(controlInfo);
@@ -68,7 +68,7 @@ export class DriverWaterPurifier extends Accessory<DriverWaterPurifierInterface>
 
         const responses = await this.refreshDevice();
         if(this.isConnected) {
-            const controlInfo = responses[Endpoint.GET_DEVICE_CONTROL_INFO];
+            const controlInfo = responses[EndpointPath.DEVICES_CONTROL];
 
             this.replace({
                 deviceType: this.deviceType,

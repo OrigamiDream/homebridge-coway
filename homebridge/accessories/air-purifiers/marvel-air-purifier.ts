@@ -4,7 +4,8 @@ import {
     CharacteristicEventTypes,
     CharacteristicGetCallback,
     CharacteristicSetCallback,
-    CharacteristicValue, Formats,
+    CharacteristicValue,
+    Formats,
     Logging,
     PlatformAccessory,
     Service
@@ -12,8 +13,9 @@ import {
 import {Device} from "../../interfaces/device";
 import {CowayService, PayloadCommand} from "../../coway";
 import {AirQuality, FanSpeed, Field, Light, Mode, Power} from "./enumerations";
-import {DeviceType, Endpoint} from "../../enumerations";
+import {DeviceType, EndpointPath} from "../../enumerations";
 import {ControlInfo, FilterInfo, IndoorAirQuality, MarvelAirPurifierInterface} from "./interfaces";
+import {IoCarePayloadRequest} from "../../interfaces/requests";
 
 // Refer to https://github.com/homebridge/HAP-NodeJS/releases/tag/v0.10.3
 // Fix rounding algorithm by @OrigamiDream in #956 and #958
@@ -32,9 +34,9 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
     constructor(log: Logging, api: API, deviceInfo: Device, service: CowayService, platformAccessory: PlatformAccessory) {
         super(log, api, DeviceType.MARVEL_AIR_PURIFIER, deviceInfo, service, platformAccessory);
 
-        this.endpoints.push(Endpoint.GET_DEVICE_CONTROL_INFO);
-        this.endpoints.push(Endpoint.GET_DEVICE_STATUS_INFO);
-        this.endpoints.push(Endpoint.GET_DEVICE_FILTER_INFO);
+        this.endpoints.push(EndpointPath.DEVICES_CONTROL);
+        this.endpoints.push(EndpointPath.AIR_DEVICES_HOME);
+        this.endpoints.push(EndpointPath.AIR_DEVICES_FILTER_INFO);
     }
 
     async refresh(responses: AccessoryResponses): Promise<void> {
@@ -46,9 +48,9 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
             return;
         }
 
-        const filterInfo = responses[Endpoint.GET_DEVICE_FILTER_INFO];
-        const statusInfo = responses[Endpoint.GET_DEVICE_STATUS_INFO];
-        const controlInfo = responses[Endpoint.GET_DEVICE_CONTROL_INFO];
+        const filterInfo = responses[EndpointPath.AIR_DEVICES_FILTER_INFO];
+        const statusInfo = responses[EndpointPath.AIR_DEVICES_HOME];
+        const controlInfo = responses[EndpointPath.DEVICES_CONTROL];
 
         const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
         ctx.filterInfos = this.getFilterInfos(filterInfo);
@@ -80,14 +82,46 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
         });
     }
 
+    createPayload(endpoint: EndpointPath): IoCarePayloadRequest | undefined {
+        switch (endpoint) {
+            case EndpointPath.AIR_DEVICES_HOME:
+                return {
+                    admdongCd: this.deviceInfo.admdongCd,
+                    barcode: this.deviceInfo.barcode,
+                    dvcBrandCd: this.deviceInfo.dvcBrandCd,
+                    prodName: this.deviceInfo.prodName,
+                    stationCd: this.deviceInfo.stationCd,
+                    zipCode: "",
+                    resetDttm: this.deviceInfo.resetDttm,
+                    deviceType: this.deviceType,
+                    mqttDevice: "true",
+                    orderNo: this.deviceInfo.ordNo,
+                    membershipYn: this.deviceInfo.membershipYn,
+                    selfYn: this.deviceInfo.selfManageYn,
+                };
+            case EndpointPath.AIR_DEVICES_FILTER_INFO:
+                return {
+                    devId: this.deviceInfo.barcode,
+                    orderNo: this.deviceInfo.ordNo,
+                    sellTypeCd: this.deviceInfo.sellTypeCd,
+                    prodName: this.deviceInfo.prodName,
+                    membershipYn: this.deviceInfo.membershipYn,
+                    mqttDevice: "true",
+                    selfYn: this.deviceInfo.selfManageYn,
+                };
+            default:
+                return super.createPayload(endpoint);
+        }
+    }
+
     async configure() {
         await super.configure();
 
         const responses = await this.refreshDevice();
         if(this.isConnected) {
-            const filterInfo = responses[Endpoint.GET_DEVICE_FILTER_INFO];
-            const statusInfo = responses[Endpoint.GET_DEVICE_STATUS_INFO];
-            const controlInfo = responses[Endpoint.GET_DEVICE_CONTROL_INFO];
+            const filterInfo = responses[EndpointPath.AIR_DEVICES_FILTER_INFO];
+            const statusInfo = responses[EndpointPath.AIR_DEVICES_HOME];
+            const controlInfo = responses[EndpointPath.DEVICES_CONTROL];
 
             this.replace({
                 deviceType: this.deviceType,
@@ -123,7 +157,7 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
     }
 
     getIndoorAirQuality(statusInfo: any): IndoorAirQuality {
-        const response = statusInfo["IAQ"][0];
+        const response = statusInfo["IAQ"];
         return {
             humidity: parseFloat(response["humidity"]),
             pm25Density: parseFloat(response["dustpm25"]),

@@ -1,10 +1,10 @@
 import {Logging} from "homebridge";
 import {CowayConfig} from "./interfaces/config";
 import axios, {AxiosRequestConfig, AxiosResponse} from "axios";
-import {Constants, Endpoint, Field, URL} from "./enumerations";
+import {Constants, Field, IoCareEndpoint, URL} from "./enumerations";
 import Utils from "./utils";
 import {URLSearchParams} from "url";
-import {AccessTokenRequest, DeviceUpdateCommand, PayloadRequest} from "./interfaces/requests";
+import {AccessTokenRequest, DeviceUpdateCommand, IoCarePayloadRequest} from "./interfaces/requests";
 import {Device} from "./interfaces/device";
 
 export interface AccessToken {
@@ -65,7 +65,7 @@ export class CowayService {
             client_id: Constants.CLIENT_ID,
             ui_locales: "en-US",
             dvc_cntry_id: "US",
-            redirect_uri: URL.NEW_REDIRECT_URL,
+            redirect_uri: URL.NEW_IOCARE_REDIRECT_URL,
         };
         const queryString = new URLSearchParams(params).toString();
         const response = await this.wrapGet(`${URL.NEW_SIGN_IN_URL}?${queryString}`).catch(error => error.response);
@@ -116,16 +116,12 @@ export class CowayService {
     private async getAccessTokens(authenticationCode: string): Promise<AccessToken> {
         const accessTokenRequest: AccessTokenRequest = {
             authCode: authenticationCode,
-            isMobile: "M",
-            langCd: "en",
-            osType: "2",
-            redirectUrl: URL.NEW_REDIRECT_URL,
-            serviceCode: Constants.SERVICE_CODE
-        }
-        const response = await this.executePayload(Endpoint.GET_ACCESS_TOKEN, accessTokenRequest).catch(error => error.response);
+            redirectUrl: URL.NEW_IOCARE_REDIRECT_URL,
+        };
+        const response = await this.executeIoCarePostPayload(IoCareEndpoint.GET_ACCESS_TOKEN, accessTokenRequest).catch(error => error.response);
         return {
-            accessToken: response.data.header.accessToken,
-            refreshToken: response.data.header.refreshToken
+            accessToken: response.data.accessToken,
+            refreshToken: response.data.refreshToken,
         };
     }
 
@@ -133,66 +129,87 @@ export class CowayService {
         const functionList: DeviceUpdateCommand[] = inputs.map(({ key, value }) => {
             return {
                 funcId: key,
-                comdVal: value
+                cmdVal: value
             };
         });
-        return await this.executePayload(Endpoint.SET_DEVICE_CONTROL, {
-            barcode: deviceInfo.barcode,
-            dvcBrandCd: deviceInfo.dvcBrandCd,
-            dvcTypeCd: deviceInfo.dvcTypeCd,
-            prodName: deviceInfo.prodName,
+        return await this.executeIoCarePostPayload(IoCareEndpoint.CONTROL_DEVICE, {
+            devId: deviceInfo.barcode,
             funcList: functionList,
-            refreshFlag: false,
-            mqttDevice: true,
-        }, accessToken);
+            dvcTypeCd: deviceInfo.dvcTypeCd,
+            isMultiControl: false,
+        }, accessToken, true).catch(error => error.response);
     }
 
-    async executePayload(urlKey: Endpoint, body: PayloadRequest, accessToken?: AccessToken, debug: boolean = true) {
+    async executeIoCareGetPayload(urlKey: IoCareEndpoint | string, body: IoCarePayloadRequest, accessToken?: AccessToken, debug: boolean = false) {
+        return await this.executeIoCarePayload(urlKey, 'GET', body, accessToken, debug);
+    }
+
+    async executeIoCarePostPayload(urlKey: IoCareEndpoint | string, body: IoCarePayloadRequest, accessToken?: AccessToken, debug: boolean = false) {
+        return await this.executeIoCarePayload(urlKey, 'POST', body, accessToken, debug);
+    }
+
+    private async executeIoCarePayload(urlKey: IoCareEndpoint | string, httpMethod: 'GET' | 'POST', body: IoCarePayloadRequest, accessToken?: AccessToken, debug: boolean = true) {
         accessToken = accessToken || {
             accessToken: '',
-            refreshToken: ''
+            refreshToken: '',
         };
-        const message = {
-            header: {
-                trcode: urlKey,
-                accessToken: accessToken.accessToken,
-                refreshToken: accessToken.refreshToken
-            },
-            body: body
-        };
-        const data = {
-            message: JSON.stringify(message)
-        };
-        const requestUrl = `${URL.BASE_URL}/${urlKey}.json`;
-        if(debug) {
-            this.log.debug("[POST REQ] %s :: %s", requestUrl, JSON.stringify(body));
-        }
-        const url = `${requestUrl}?${new URLSearchParams(data).toString()}`;
-        return this.wrapPost(url, data, {
-            headers: {
-                'User-Agent': Constants.USER_AGENT,
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Accept': 'application/json'
+        if(!!accessToken.accessToken && urlKey != IoCareEndpoint.REFRESH_TOKEN) {
+            const decoded = JSON.parse(Buffer.from(accessToken.accessToken.split(".")[1], 'base64').toString());
+            const expire = decoded.exp;
+            const now = new Date();
+            const isExpired = expire < (now.getTime() / 1000);
+            if(isExpired) {
+                const response = await this.executeIoCarePostPayload(IoCareEndpoint.REFRESH_TOKEN, {
+                    refreshToken: accessToken.refreshToken,
+                }, accessToken, true).catch(error => error.response);
+                accessToken.accessToken = response.data.accessToken;
+                accessToken.refreshToken = response.data.refreshToken;
             }
-        }, false);
+        }
+        const [ path, transactionCode ] = urlKey.split('::');
+
+        let url = URL.NEW_IOCARE_API_URL + path;
+        if(httpMethod === 'GET') {
+            url += '?' + new URLSearchParams(body as any);
+            if(debug) {
+                this.log.debug('[GET REQ] %s (%s)', url, transactionCode);
+            }
+        } else if(debug) {
+            this.log.debug('[POST REQ] %s (%s) :: %s', url, transactionCode, JSON.stringify(body));
+        }
+        const headers: any = {
+            'User-Agent': Constants.USER_AGENT,
+            'Content-Type': 'application/json',
+            'trcode': transactionCode,
+            'profile': 'prod',
+        };
+        if(!!accessToken.accessToken) {
+            headers['Authorization'] = `Bearer ${accessToken.accessToken}`;
+        }
+        let response;
+        if(httpMethod === 'GET') {
+            response = this.wrapGet(url, { headers: headers }, true);
+        } else {
+            response = this.wrapPost(url, body, { headers: headers }, true);
+        }
+        return await response.then((res) => res.data).catch((error) => {
+            this.log.debug(error.response.data);
+            return error.response.data;
+        });
     }
 
     private async wrapGet(url: string, config?: AxiosRequestConfig, debug: boolean = true): Promise<AxiosResponse> {
         if(debug) {
             this.log.debug("[GET REQ]", url);
         }
-        return await axios.get(url, config).then(response => {
-            return response;
-        });
+        return await axios.get(url, config);
     }
 
     private async wrapPost(url: string, data?: any, config?: AxiosRequestConfig, debug: boolean = true): Promise<AxiosResponse> {
         if(debug) {
             this.log.debug("[POST REQ]", url);
         }
-        return await axios.post(url, data, config).then(response => {
-            return response;
-        });
+        return await axios.post(url, data, config);
     }
 
 }
