@@ -66,19 +66,19 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
 
             // Lightbulbs
             this.lightbulbService?.setCharacteristic(this.api.hap.Characteristic.On, ctx.controlInfo.on && ctx.controlInfo.lightbulbInfo.on);
-            this.lightbulbService?.setCharacteristic(this.api.hap.Characteristic.Brightness, this.getLightbulbBrightnessPercentage(ctx));
+            this.setOptionalCharacteristic(this.api.hap.Characteristic.Brightness, this.lightbulbService, this.getLightbulbBrightnessPercentage(ctx));
 
             // Air Quality
             this.airQualityService?.setCharacteristic(this.api.hap.Characteristic.AirQuality, this.getCurrentAirQuality(ctx));
-            this.airQualityService?.setCharacteristic(this.api.hap.Characteristic.PM10Density, ctx.indoorAirQuality.pm10Density);
-            this.airQualityService?.setCharacteristic(this.api.hap.Characteristic.PM2_5Density, ctx.indoorAirQuality.pm25Density);
-            this.airQualityService?.setCharacteristic(this.api.hap.Characteristic.VOCDensity, ctx.indoorAirQuality.vocDensity);
+            this.setOptionalCharacteristic(this.api.hap.Characteristic.PM10Density, this.airQualityService, ctx.indoorAirQuality.pm10Density);
+            this.setOptionalCharacteristic(this.api.hap.Characteristic.PM2_5Density, this.airQualityService, ctx.indoorAirQuality.pm25Density);
+            this.setOptionalCharacteristic(this.api.hap.Characteristic.VOCDensity, this.airQualityService, ctx.indoorAirQuality.vocDensity);
 
             // Humidity Sensors
-            this.humiditySensorService?.setCharacteristic(this.api.hap.Characteristic.CurrentRelativeHumidity, ctx.indoorAirQuality.humidity);
+            this.setOptionalCharacteristic(this.api.hap.Characteristic.CurrentRelativeHumidity, this.humiditySensorService, ctx.indoorAirQuality.humidity);
 
             // Temperature Sensors
-            this.temperatureSensorService?.setCharacteristic(this.api.hap.Characteristic.CurrentTemperature, ctx.indoorAirQuality.temperature);
+            this.setOptionalCharacteristic(this.api.hap.Characteristic.CurrentRelativeHumidity, this.temperatureSensorService, ctx.indoorAirQuality.temperature);
         });
     }
 
@@ -148,7 +148,7 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
             on: status[Field.POWER] === "1", // 1 → ON, 0 → OFF
             lightbulbInfo: {
                 on: status[Field.LIGHT] === "0", // 0 → ON, 3 → OFF
-                brightness: parseInt(status[Field.LIGHT_BRIGHTNESS]), // 0 → AUTO, 1 → LV1, 2 → LV2, 3 → LV3
+                brightness: this.parseNullableInt(status[Field.LIGHT_BRIGHTNESS]), // 0 → AUTO, 1 → LV1, 2 → LV2, 3 → LV3
             },
             airQuality: parseInt(status[Field.AIR_QUALITY]) as AirQuality,
             mode: status[Field.MODE] as Mode,
@@ -159,11 +159,11 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
     getIndoorAirQuality(statusInfo: any): IndoorAirQuality {
         const response = statusInfo["IAQ"];
         return {
-            humidity: parseFloat(response["humidity"]),
-            pm25Density: parseFloat(response["dustpm25"]),
-            pm10Density: parseFloat(response["dustpm10"]),
-            temperature: parseFloat(response["temperature"]),
-            vocDensity: parseFloat(response["vocs"])
+            humidity: this.parseNullableFloat(response["humidity"]),
+            pm25Density: this.parseNullableFloat(response["dustpm25"]),
+            pm10Density: this.parseNullableFloat(response["dustpm10"]),
+            temperature: this.parseNullableFloat(response["temperature"]),
+            vocDensity: this.parseNullableFloat(response["vocs"])
         };
     }
 
@@ -179,14 +179,14 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
     }
 
     registerLightbulbService(): Service {
+        const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
+
         const service = this.ensureServiceAvailability(this.api.hap.Service.Lightbulb);
         service.getCharacteristic(this.api.hap.Characteristic.On)
             .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
-                const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
                 callback(undefined, ctx.controlInfo.on && ctx.controlInfo.lightbulbInfo.on);
             }))
             .on(CharacteristicEventTypes.SET, this.wrapSet(async (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
-                const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
                 const enabled = !!value;
                 if(ctx.controlInfo.lightbulbInfo.on === enabled) {
                     callback(undefined);
@@ -205,56 +205,56 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
                 callback(undefined);
             }));
 
-        service.getCharacteristic(this.api.hap.Characteristic.Brightness)
-            .setProps({
-                format: Formats.FLOAT,
-                minValue: 0.0, // auto-driving brightness state (only available with direct hardware control)
-                maxValue: 100.0, // Up to level 3
-                minStep: LIGHTBULB_BRIGHTNESS_UNIT
-            })
-            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
-                const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
-                if(!ctx.controlInfo.on) {
-                    callback(undefined, 0); // zero brightness when the purifier turned off
-                    return;
-                }
-                let brightness = ctx.controlInfo.lightbulbInfo.brightness * LIGHTBULB_BRIGHTNESS_UNIT;
-                callback(undefined, brightness);
-            }))
-            .on(CharacteristicEventTypes.SET, this.wrapSet(async (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
-                const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
-                const brightness = Math.round((value as number) / LIGHTBULB_BRIGHTNESS_UNIT);
+        if(typeof ctx.controlInfo.lightbulbInfo.brightness !== 'undefined') {
+            service.getCharacteristic(this.api.hap.Characteristic.Brightness)
+                .setProps({
+                    format: Formats.FLOAT,
+                    minValue: 0.0, // auto-driving brightness state (only available with direct hardware control)
+                    maxValue: 100.0, // Up to level 3
+                    minStep: LIGHTBULB_BRIGHTNESS_UNIT
+                })
+                .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
+                    if(!ctx.controlInfo.on) {
+                        callback(undefined, 0); // zero brightness when the purifier turned off
+                        return;
+                    }
+                    let brightness = ctx.controlInfo.lightbulbInfo.brightness!! * LIGHTBULB_BRIGHTNESS_UNIT;
+                    callback(undefined, brightness);
+                }))
+                .on(CharacteristicEventTypes.SET, this.wrapSet(async (value: CharacteristicValue, callback: CharacteristicSetCallback) => {
+                    const brightness = Math.round((value as number) / LIGHTBULB_BRIGHTNESS_UNIT);
 
-                if(ctx.controlInfo.lightbulbInfo.brightness === brightness) {
-                    callback(undefined);
-                    return;
-                }
-                ctx.controlInfo.lightbulbInfo.brightness = brightness;
+                    if(ctx.controlInfo.lightbulbInfo.brightness === brightness) {
+                        callback(undefined);
+                        return;
+                    }
+                    ctx.controlInfo.lightbulbInfo.brightness = brightness;
 
-                if(brightness === 0) {
-                    // If the brightness goes zero, turn the light off.
-                    ctx.controlInfo.lightbulbInfo.on = false;
+                    if(brightness === 0) {
+                        // If the brightness goes zero, turn the light off.
+                        ctx.controlInfo.lightbulbInfo.on = false;
 
-                    await this.executeSetPayload(ctx.deviceInfo, Field.LIGHT, Light.OFF, this.accessToken);
-                    callback(undefined);
-                    return;
-                }
+                        await this.executeSetPayload(ctx.deviceInfo, Field.LIGHT, Light.OFF, this.accessToken);
+                        callback(undefined);
+                        return;
+                    }
 
-                const commands: PayloadCommand[] = [];
-                if(!ctx.controlInfo.on) {
-                    // If the user attempts to light up and the purifier is offline
+                    const commands: PayloadCommand[] = [];
+                    if(!ctx.controlInfo.on) {
+                        // If the user attempts to light up and the purifier is offline
+                        commands.push({
+                            key: Field.POWER,
+                            value: Power.ON
+                        });
+                    }
                     commands.push({
-                        key: Field.POWER,
-                        value: Power.ON
+                        key: Field.LIGHT_BRIGHTNESS,
+                        value: brightness.toFixed(0)
                     });
-                }
-                commands.push({
-                    key: Field.LIGHT_BRIGHTNESS,
-                    value: brightness.toFixed(0)
-                });
-                await this.executeSetPayloads(ctx.deviceInfo, commands, this.accessToken);
-                callback(undefined);
-            }));
+                    await this.executeSetPayloads(ctx.deviceInfo, commands, this.accessToken);
+                    callback(undefined);
+                }));
+        }
         return service;
     }
 
@@ -275,10 +275,12 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
                 ctx.controlInfo.on = enabled;
                 if(!enabled) {
                     ctx.controlInfo.lightbulbInfo.on = false;
-                    ctx.controlInfo.lightbulbInfo.brightness = 0;
+                    if(this.isNotNull(ctx.controlInfo.lightbulbInfo.brightness)) {
+                        ctx.controlInfo.lightbulbInfo.brightness = 0;
+                    }
                     setTimeout(() => {
                         this.lightbulbService?.setCharacteristic(this.api.hap.Characteristic.On, ctx.controlInfo.on && ctx.controlInfo.lightbulbInfo.on);
-                        this.lightbulbService?.setCharacteristic(this.api.hap.Characteristic.Brightness, this.getLightbulbBrightnessPercentage(ctx));
+                        this.setOptionalCharacteristic(this.api.hap.Characteristic.Brightness, this.lightbulbService, this.getLightbulbBrightnessPercentage(ctx));
                     }, 0);
                 }
 
@@ -389,34 +391,33 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
     }
 
     registerAirQualityService(): Service {
+        const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
+        const airQuality = ctx.indoorAirQuality;
+
         const service = this.ensureServiceAvailability(this.api.hap.Service.AirQualitySensor);
         service.getCharacteristic(this.api.hap.Characteristic.AirQuality)
             .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
-                const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
-
                 callback(undefined, this.getCurrentAirQuality(ctx));
             }));
-        service.getCharacteristic(this.api.hap.Characteristic.PM10Density)
-            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
-                const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
-                const airQuality = ctx.indoorAirQuality;
 
-                callback(undefined, airQuality.pm10Density);
-            }));
-        service.getCharacteristic(this.api.hap.Characteristic.PM2_5Density)
-            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
-                const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
-                const airQuality = ctx.indoorAirQuality;
-
-                callback(undefined, airQuality.pm25Density);
-            }));
-        service.getCharacteristic(this.api.hap.Characteristic.VOCDensity)
-            .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
-                const ctx = this.platformAccessory.context as MarvelAirPurifierInterface;
-                const airQuality = ctx.indoorAirQuality;
-
-                callback(undefined, airQuality.vocDensity);
-            }));
+        if(this.isNotNull(airQuality.pm10Density)) {
+            service.getCharacteristic(this.api.hap.Characteristic.PM10Density)
+                .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
+                    callback(undefined, airQuality.pm10Density);
+                }));
+        }
+        if(this.isNotNull(airQuality.pm25Density)) {
+            service.getCharacteristic(this.api.hap.Characteristic.PM2_5Density)
+                .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
+                    callback(undefined, airQuality.pm25Density);
+                }));
+        }
+        if(this.isNotNull(airQuality.vocDensity)) {
+            service.getCharacteristic(this.api.hap.Characteristic.VOCDensity)
+                .on(CharacteristicEventTypes.GET, this.wrapGet((callback: CharacteristicGetCallback) => {
+                    callback(undefined, airQuality.vocDensity);
+                }));
+        }
         return service;
     }
 
@@ -511,37 +512,44 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
             return this.api.hap.Characteristic.AirQuality.UNKNOWN;
         }
 
-        // PM10 Air Quality
-        let pm10Level;
-        if(pm10 < 0) {
-            pm10Level = this.api.hap.Characteristic.AirQuality.UNKNOWN;
-        } else if(pm10 <= 10) {
-            pm10Level = this.api.hap.Characteristic.AirQuality.EXCELLENT;
-        } else if(pm10 <= 30) {
-            pm10Level = this.api.hap.Characteristic.AirQuality.GOOD;
-        } else if(pm10 <= 80) {
-            pm10Level = this.api.hap.Characteristic.AirQuality.FAIR;
-        } else if(pm10 <= 150) {
-            pm10Level = this.api.hap.Characteristic.AirQuality.INFERIOR;
-        } else {
-            pm10Level = this.api.hap.Characteristic.AirQuality.POOR;
+        const values = [];
+        if(typeof pm10 !== 'undefined') {
+            // PM10 Air Quality
+            let pm10Level;
+            if(pm10 < 0) {
+                pm10Level = this.api.hap.Characteristic.AirQuality.UNKNOWN;
+            } else if(pm10 <= 10) {
+                pm10Level = this.api.hap.Characteristic.AirQuality.EXCELLENT;
+            } else if(pm10 <= 30) {
+                pm10Level = this.api.hap.Characteristic.AirQuality.GOOD;
+            } else if(pm10 <= 80) {
+                pm10Level = this.api.hap.Characteristic.AirQuality.FAIR;
+            } else if(pm10 <= 150) {
+                pm10Level = this.api.hap.Characteristic.AirQuality.INFERIOR;
+            } else {
+                pm10Level = this.api.hap.Characteristic.AirQuality.POOR;
+            }
+            values.push(pm10Level);
         }
-        // PM2.5 Air Quality
-        let pm25Level;
-        if(pm25 < 0) {
-            pm25Level = this.api.hap.Characteristic.AirQuality.UNKNOWN;
-        } else if(pm25 <= 5) {
-            pm25Level = this.api.hap.Characteristic.AirQuality.EXCELLENT;
-        } else if(pm25 <= 15) {
-            pm25Level = this.api.hap.Characteristic.AirQuality.GOOD;
-        } else if(pm25 <= 35) {
-            pm25Level = this.api.hap.Characteristic.AirQuality.FAIR;
-        } else if(pm25 <= 75) {
-            pm25Level = this.api.hap.Characteristic.AirQuality.INFERIOR;
-        } else {
-            pm25Level = this.api.hap.Characteristic.AirQuality.POOR;
+        if(typeof pm25 !== 'undefined') {
+            // PM2.5 Air Quality
+            let pm25Level;
+            if(pm25 < 0) {
+                pm25Level = this.api.hap.Characteristic.AirQuality.UNKNOWN;
+            } else if(pm25 <= 5) {
+                pm25Level = this.api.hap.Characteristic.AirQuality.EXCELLENT;
+            } else if(pm25 <= 15) {
+                pm25Level = this.api.hap.Characteristic.AirQuality.GOOD;
+            } else if(pm25 <= 35) {
+                pm25Level = this.api.hap.Characteristic.AirQuality.FAIR;
+            } else if(pm25 <= 75) {
+                pm25Level = this.api.hap.Characteristic.AirQuality.INFERIOR;
+            } else {
+                pm25Level = this.api.hap.Characteristic.AirQuality.POOR;
+            }
+            values.push(pm25Level);
         }
-        return Math.max(pm10Level, pm25Level) as CharacteristicValue;
+        return Math.max(...values) as CharacteristicValue;
     }
 
     getRotationSpeed(ctx: MarvelAirPurifierInterface) {
@@ -574,7 +582,10 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
         return undefined;
     }
 
-    getLightbulbBrightnessPercentage(ctx: MarvelAirPurifierInterface): number {
+    getLightbulbBrightnessPercentage(ctx: MarvelAirPurifierInterface): number | undefined {
+        if(typeof ctx.controlInfo.lightbulbInfo.brightness === 'undefined') {
+            return undefined;
+        }
         return ctx.controlInfo.lightbulbInfo.brightness * LIGHTBULB_BRIGHTNESS_UNIT; // int32
     }
 

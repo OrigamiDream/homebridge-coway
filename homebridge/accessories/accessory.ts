@@ -1,5 +1,5 @@
 import {
-    API,
+    API, Characteristic,
     CharacteristicGetCallback,
     CharacteristicSetCallback,
     CharacteristicValue,
@@ -92,6 +92,34 @@ export class Accessory<T extends AccessoryInterface> {
             }
         }
         return service;
+    }
+
+    protected parseNullableFloat(value?: string) {
+        if(!value) {
+            return undefined;
+        } else {
+            return parseFloat(value);
+        }
+    }
+
+    protected parseNullableInt(value?: string) {
+        if(!value) {
+            return undefined;
+        } else {
+            return parseInt(value);
+        }
+    }
+
+    protected setOptionalCharacteristic<T extends WithUUID<{
+        new (): Characteristic
+    }>>(name: string | T, service?: Service, value?: CharacteristicValue) {
+        if(this.isNotNull(value)) {
+            service?.setCharacteristic(name, value!!);
+        }
+    }
+
+    protected isNotNull(value?: any) {
+        return typeof value !== 'undefined';
     }
 
     private createControlPayload(): DeviceControlInfoRequest {

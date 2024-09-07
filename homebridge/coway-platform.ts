@@ -160,14 +160,20 @@ export class CowayPlatform implements DynamicPlatformPlugin {
         const deviceType = <DeviceType> deviceInfo.dvcTypeCd;
         const uuid = this.api.hap.uuid.generate(deviceInfo.barcode);
         if(!this.accessories.find(accessory => accessory.getPlatformAccessory().UUID === uuid)) {
-            this.log.info("Adding new accessory: %s (%s)", deviceInfo.dvcNick, deviceInfo.prodName);
-            const platformAccessory = new this.api.platformAccessory(deviceInfo.dvcNick, uuid);
             const accessoryType = this.accessoryRegistry[deviceType];
+            if(!accessoryType) {
+                this.log.warn("The accessory is not supported: %s (%d)", deviceInfo.dvcNick, deviceInfo.dvcTypeCd);
+                return;
+            }
+            this.log.info("Adding new accessory: %s (%s)", deviceInfo.dvcNick, deviceInfo.prodName);
+
+            const platformAccessory = new this.api.platformAccessory(deviceInfo.dvcNick, uuid);
             const accessory = new accessoryType(this.log, this.api, deviceInfo, this.service, platformAccessory);
 
             this.accessories.push(accessory);
 
             accessory.configureCredentials(this.config!, this.accessToken!);
+            await accessory.refresh(await accessory.refreshDevice());
             await accessory.configure();
 
             platformAccessory.context.configured = true;
