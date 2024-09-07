@@ -5,7 +5,6 @@ import {
     CharacteristicGetCallback,
     CharacteristicSetCallback,
     CharacteristicValue,
-    Formats,
     Logging,
     PlatformAccessory,
     Service
@@ -208,7 +207,7 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
         if(typeof ctx.controlInfo.lightbulbInfo.brightness !== 'undefined') {
             service.getCharacteristic(this.api.hap.Characteristic.Brightness)
                 .setProps({
-                    format: Formats.FLOAT,
+                    format: this.api.hap.Formats.FLOAT,
                     minValue: 0.0, // auto-driving brightness state (only available with direct hardware control)
                     maxValue: 100.0, // Up to level 3
                     minStep: LIGHTBULB_BRIGHTNESS_UNIT
@@ -326,7 +325,7 @@ export class MarvelAirPurifier extends Accessory<MarvelAirPurifierInterface> {
 
         service.getCharacteristic(this.api.hap.Characteristic.RotationSpeed)
             .setProps({
-                format: Formats.FLOAT,
+                format: this.api.hap.Formats.FLOAT,
                 minValue: 0,
                 maxValue: 100, // Up to level 6
                 minStep: ROTATION_SPEED_UNIT
