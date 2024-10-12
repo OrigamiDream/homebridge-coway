@@ -23,6 +23,10 @@ export interface PayloadCommand {
 }
 
 export interface LogInRequest {
+    clientName: "IOCARE";
+    uiLocales: "en-US";
+    isAosApp: true;
+    isIosApp: false;
     termAgreementStatus: "";
     idp: "";
     username: string;
@@ -49,6 +53,10 @@ export class CowayService {
         }
         const session = await this.parseSession();
         const authenticationCode = await this.authenticate({
+            clientName: "IOCARE",
+            uiLocales: "en-US",
+            isAosApp: true,
+            isIosApp: false,
             termAgreementStatus: "",
             idp: "",
             username: config.username,
