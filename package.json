@@ -1,7 +1,7 @@
 {
   "displayName": "Homebridge Coway",
   "name": "homebridge-coway",
-  "version": "1.0.1",
+  "version": "1.0.2-beta.0",
   "description": "Homebridge plugin for the Coway purifiers",
   "main": "dist/index.js",
   "scripts": {
